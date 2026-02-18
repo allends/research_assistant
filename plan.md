@@ -412,21 +412,33 @@ export async function ask(prompt: string, options: AskOptions) {
 
 ## Implementation Plan (Phased)
 
-### Phase 1: Foundation (Days 1–2)
+### Phase 1: Foundation (Days 1–2) ✅ COMPLETED
 
-- [ ] Project scaffolding: `bun init`, tsconfig, package.json
-- [ ] Config system: load/save `~/.research-assistant/config.json`
-- [ ] QMD wrapper (`src/integrations/qmd.ts`):
-  - Spawn `qmd` process via `Bun.spawn` or `bun:shell` `$` tagged template, parse JSON
-  - Methods: `search()`, `vsearch()`, `query()`, `get()`, `multiGet()`, `status()`
-- [ ] Obsidian CLI wrapper (`src/integrations/obsidian-cli.ts`):
-  - `eval()`, `isAvailable()`, `listFiles()`, `readFile()`, `searchContent()`, `readProperty()`
-  - Graceful fallback when Obsidian isn't running
-  - Note: CLI is Early Access — handle unexpected errors gracefully
-- [ ] Vault filesystem wrapper (`src/integrations/vault-fs.ts`):
-  - `readNote()`, `writeNote()`, `listNotes()`, `parseFrontmatter()`
-- [ ] CLI skeleton with `commander`:
-  - `init`, `search`, `index` commands (non-agent commands first)
+- [x] Project scaffolding: `bun init`, tsconfig, package.json
+  - *Bun 1.3.9, TypeScript 5.9.3, strict mode enabled*
+  - *Bin entries: `ra` and `research-assistant` pointing to `./src/index.ts`*
+  - *Dependencies: commander@12.1.0, glob@11.1.0, gray-matter@4.0.3*
+- [x] Config system: load/save `~/.research-assistant/config.json`
+  - *`src/config.ts` — loadConfig(), saveConfig(), validateVaultPath(), configExists()*
+  - *Typed config with defaults via `src/types/config.ts`*
+- [x] QMD wrapper (`src/integrations/qmd.ts`):
+  - *Uses `Bun.spawn` for subprocess execution, parses JSON output*
+  - *Methods: `search()`, `vsearch()`, `query()`, `hybridSearch()`, `get()`, `multiGet()`, `status()`, `collectionAdd()`, `contextAdd()`, `embed()`, `update()`, `isAvailable()`*
+- [x] Obsidian CLI wrapper (`src/integrations/obsidian-cli.ts`):
+  - *`evalCode()`, `isAvailable()`, `listFiles()`, `readFile()`, `searchContent()`, `readProperty()`, `getVersion()`*
+  - *Graceful error handling — all methods throw on non-zero exit, callers can catch*
+  - *CLI Early Access: wrapper is resilient to changes via try/catch patterns*
+- [x] Vault filesystem wrapper (`src/integrations/vault-fs.ts`):
+  - *`readNote()`, `writeNote()`, `listNotes()`, `parseFrontmatter()`, `extractWikilinks()`, `getVaultStats()`, `isObsidianVault()`*
+  - *Also created `src/utils/markdown.ts` with additional helpers: `extractTags()`, `extractHeadings()`*
+- [x] CLI skeleton with `commander`:
+  - *`init`, `search`, `index` commands implemented*
+  - *`init`: validates vault, checks QMD + Obsidian CLI, registers collection, runs initial indexing*
+  - *`search`: supports `--mode keyword|semantic|hybrid`, `--limit`, `--min-score`, `--json`*
+  - *`index`: supports `--update` (incremental) and `--status` flags*
+  - *Also created: `src/utils/formatter.ts` (colored terminal output), `src/utils/logger.ts` (debug/info/error/warn)*
+  - *All type definitions: `src/types/config.ts`, `src/types/vault.ts`, `src/types/search.ts`*
+  - *Type-checks clean with `tsc --noEmit`*
 
 ### Phase 2: Agent Integration (Days 3–4)
 

@@ -1,0 +1,135 @@
+import type {
+  QmdSearchResult,
+  QmdSearchResponse,
+  QmdStatusResponse,
+  SearchMode,
+} from "../types/search.ts";
+
+async function run(
+  args: string[],
+): Promise<{ stdout: string; exitCode: number }> {
+  const proc = Bun.spawn(["qmd", ...args], {
+    stdout: "pipe",
+    stderr: "pipe",
+  });
+
+  const stdout = await new Response(proc.stdout).text();
+  const exitCode = await proc.exited;
+
+  if (exitCode !== 0) {
+    const stderr = await new Response(proc.stderr).text();
+    throw new Error(`qmd ${args.join(" ")} failed (exit ${exitCode}): ${stderr}`);
+  }
+
+  return { stdout: stdout.trim(), exitCode };
+}
+
+function parseJsonOutput<T>(stdout: string): T {
+  return JSON.parse(stdout) as T;
+}
+
+export async function search(
+  query: string,
+  options: { limit?: number; minScore?: number } = {},
+): Promise<QmdSearchResult[]> {
+  const args = ["search", query, "--json"];
+  if (options.limit) args.push("-n", String(options.limit));
+  if (options.minScore) args.push("--min-score", String(options.minScore));
+
+  const { stdout } = await run(args);
+  return parseJsonOutput<QmdSearchResult[]>(stdout);
+}
+
+export async function vsearch(
+  query: string,
+  options: { limit?: number; minScore?: number } = {},
+): Promise<QmdSearchResult[]> {
+  const args = ["vsearch", query, "--json"];
+  if (options.limit) args.push("-n", String(options.limit));
+  if (options.minScore) args.push("--min-score", String(options.minScore));
+
+  const { stdout } = await run(args);
+  return parseJsonOutput<QmdSearchResult[]>(stdout);
+}
+
+export async function query(
+  queryStr: string,
+  options: { limit?: number; minScore?: number } = {},
+): Promise<QmdSearchResult[]> {
+  const args = ["query", queryStr, "--json"];
+  if (options.limit) args.push("-n", String(options.limit));
+  if (options.minScore) args.push("--min-score", String(options.minScore));
+
+  const { stdout } = await run(args);
+  return parseJsonOutput<QmdSearchResult[]>(stdout);
+}
+
+export async function hybridSearch(
+  queryStr: string,
+  mode: SearchMode = "hybrid",
+  options: { limit?: number; minScore?: number } = {},
+): Promise<QmdSearchResult[]> {
+  switch (mode) {
+    case "keyword":
+      return search(queryStr, options);
+    case "semantic":
+      return vsearch(queryStr, options);
+    case "hybrid":
+      return query(queryStr, options);
+  }
+}
+
+export async function get(
+  ref: string,
+  options: { lineNumbers?: boolean } = {},
+): Promise<string> {
+  const args = ["get", ref];
+  if (options.lineNumbers) args.push("--line-numbers");
+
+  const { stdout } = await run(args);
+  return stdout;
+}
+
+export async function multiGet(refs: string[]): Promise<string[]> {
+  return Promise.all(refs.map((ref) => get(ref)));
+}
+
+export async function status(): Promise<QmdStatusResponse> {
+  const { stdout } = await run(["status", "--json"]);
+  return parseJsonOutput<QmdStatusResponse>(stdout);
+}
+
+export async function collectionAdd(
+  path: string,
+  name: string,
+): Promise<void> {
+  await run(["collection", "add", path, "--name", name]);
+}
+
+export async function contextAdd(
+  uri: string,
+  description: string,
+): Promise<void> {
+  await run(["context", "add", uri, description]);
+}
+
+export async function embed(): Promise<void> {
+  await run(["embed"]);
+}
+
+export async function update(): Promise<void> {
+  await run(["update"]);
+}
+
+export async function isAvailable(): Promise<boolean> {
+  try {
+    const proc = Bun.spawn(["qmd", "--version"], {
+      stdout: "pipe",
+      stderr: "pipe",
+    });
+    await proc.exited;
+    return proc.exitCode === 0;
+  } catch {
+    return false;
+  }
+}
