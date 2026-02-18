@@ -98,3 +98,23 @@ export async function getVaultStats(vaultPath: string): Promise<VaultStats> {
 export function isObsidianVault(path: string): boolean {
   return existsSync(join(path, ".obsidian"));
 }
+
+export async function getRecentNotes(
+  vaultPath: string,
+  days: number,
+): Promise<{ path: string; mtime: Date }[]> {
+  const notes = await listNotes(vaultPath);
+  const cutoff = Date.now() - days * 24 * 60 * 60 * 1000;
+  const results: { path: string; mtime: Date }[] = [];
+
+  for (const note of notes) {
+    const fullPath = join(vaultPath, note);
+    const file = Bun.file(fullPath);
+    const stat = await file.stat();
+    if (stat.mtime.getTime() >= cutoff) {
+      results.push({ path: note, mtime: stat.mtime });
+    }
+  }
+
+  return results.sort((a, b) => b.mtime.getTime() - a.mtime.getTime());
+}

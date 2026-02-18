@@ -155,15 +155,14 @@ research-assistant/
 │   │   ├── search.ts         # ✅ Direct QMD search passthrough + formatting
 │   │   ├── ask.ts            # ✅ Single-turn agent Q&A over vault
 │   │   ├── chat.ts           # ✅ Multi-turn conversational agent (interactive REPL)
-│   │   ├── link-suggest.ts   # Suggest [[wikilinks]] for a note (Phase 3)
-│   │   ├── review.ts         # Review recent changes, surface insights (Phase 3)
+│   │   ├── link-suggest.ts   # ✅ Suggest [[wikilinks]] for a note
+│   │   ├── review.ts         # ✅ Review recent changes, surface insights
 │   │   ├── index-cmd.ts      # ✅ (Re)index vault with QMD
 │   │   └── init.ts           # ✅ Initialize research-assistant for a vault
 │   ├── agent/
 │   │   ├── engine.ts         # ✅ askOnce() + chatLoop() via Agent SDK query()
-│   │   ├── system-prompts.ts # ✅ Dynamic vault-aware system prompts for ask/chat
-│   │   ├── tools.ts          # ✅ 6 MCP tools (qmd_search, qmd_get, vault_list/read/write, obsidian_eval)
-│   │   └── sub-agents.ts     # Sub-agent definitions (Phase 3)
+│   │   ├── system-prompts.ts # ✅ Dynamic vault-aware system prompts (ask/chat/link-suggest/review)
+│   │   └── tools.ts          # ✅ 6 MCP tools (qmd_search, qmd_get, vault_list/read/write, obsidian_eval)
 │   ├── integrations/
 │   │   ├── qmd.ts            # ✅ QMD wrapper (node subprocess, import.meta.resolve entry point)
 │   │   ├── obsidian-cli.ts   # ✅ Obsidian CLI wrapper (eval, commands)
@@ -569,17 +568,29 @@ Both `RA_DEV=1` and `RA_VAULT=<path>` bypass the requirement for `~/.research-as
 3. **Auth** — Early `checkAuth()` validates presence of `ANTHROPIC_API_KEY` or `CLAUDE_CODE_OAUTH_TOKEN` before any SDK call, with a clear error message.
 4. **`allowDangerouslySkipPermissions`** — Required alongside `permissionMode: "bypassPermissions"` for the SDK to actually bypass permissions.
 
-### Phase 3: Smart Features (Days 6–7)
+### Phase 3: Smart Features (Days 6–7) ✅ COMPLETED
 
-- [ ] `ra link-suggest <file>` — semantic search + agent analysis to suggest `[[wikilinks]]`
-  - Uses `qmd_search` to find related notes, agent proposes links
-  - `--apply` flag to auto-insert links into the file
-- [ ] `ra review --recent <days>` — surface recent vault changes and suggest actions
-  - Lists recently modified files, agent summarizes changes and suggests follow-ups
-- [ ] Sub-agent definitions (`src/agent/sub-agents.ts`)
-  - `researcher` — deep-dive search agent (uses `qmd_search`, `qmd_get`, `Read`, `Grep`)
-  - `linker` — connection analysis agent (uses `qmd_search`, `obsidian_eval`)
-  - Registered via `agents` option in `query()`, invoked by main agent via `Task` tool
+- [x] `ra link-suggest <file>` — semantic search + agent analysis to suggest `[[wikilinks]]`
+  - *`src/commands/link-suggest.ts` — reads target note, extracts existing wikilinks, builds focused system prompt*
+  - *Uses `linkSuggestSystemPrompt()` with existing links context so agent avoids duplicates*
+  - *`--apply` flag instructs agent to rewrite the note with inline wikilinks via `vault_write`*
+  - *`--model` flag to override default model*
+  - *Reuses `askOnce()` with custom `systemPrompt` option (engine refactored to accept override)*
+- [x] `ra review --recent <days>` — surface recent vault changes and suggest actions
+  - *`src/commands/review.ts` — scans vault for recently modified notes by mtime*
+  - *`vaultFs.getRecentNotes(vaultPath, days)` added to `src/integrations/vault-fs.ts`*
+  - *Uses `reviewSystemPrompt()` with the list of recent files and their modification dates*
+  - *Defaults to 7 days lookback, configurable via `--recent <n>`*
+  - *Shows count of recent notes before invoking agent*
+  - *Agent reads each note, identifies patterns, and suggests grouped actions*
+- Sub-agent definitions moved to `tasks/sub-agents.md` (future work, not part of Phase 3)
+
+#### Implementation details from Phase 3
+
+1. **Engine refactored** — `askOnce()` now accepts an optional `systemPrompt` override, allowing commands to provide custom prompts without modifying the engine.
+2. **System prompts** — `linkSuggestSystemPrompt()` and `reviewSystemPrompt()` added to `src/agent/system-prompts.ts`. Both dynamically include vault context and task-specific instructions.
+3. **`getRecentNotes()`** — New helper in `vault-fs.ts` that scans notes by `Bun.file().stat().mtime`, filters by day cutoff, and sorts by most recent first.
+4. **CLI tests updated** — `tests/cli-smoke.ts` extended with `link-suggest --help` and `review --help` tests (12 total, all passing).
 
 ### Phase 4: Polish (Day 8)
 
@@ -670,9 +681,9 @@ This is a CLI tool, not a plugin. It runs in the terminal alongside your develop
 
 9. **Include "Task" in allowedTools** if you want the main agent to delegate to sub-agents — the SDK uses the Task tool internally for sub-agent dispatch.
 
-### Next Up: Phase 3
+### Next Up: Phase 4
 
-- Phases 1 and 2 are complete. The foundation (integrations, config, CLI, agent engine) is solid.
-- Phase 3 adds `link-suggest` and `review` commands plus sub-agent definitions.
-- Sub-agents (`researcher`, `linker`) should reuse the existing `createVaultMcpServer()` tool set.
-- CLAUDE.md has been updated with project architecture, key constraints, scripts, and Agent SDK patterns.
+- Phases 1–3 are complete. The foundation, agent engine, and smart features are all working.
+- Phase 4 focuses on polish: error handling, help text, README, and test coverage.
+- Sub-agent definitions are spec'd in `tasks/sub-agents.md` for future implementation.
+- Other future tasks are tracked in `tasks/` (e.g., `verbose-qmd-output.md`).

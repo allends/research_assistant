@@ -6,6 +6,8 @@ import { searchCommand } from "./commands/search.ts";
 import { indexCommand } from "./commands/index-cmd.ts";
 import { askCommand } from "./commands/ask.ts";
 import { chatCommand } from "./commands/chat.ts";
+import { linkSuggestCommand } from "./commands/link-suggest.ts";
+import { reviewCommand } from "./commands/review.ts";
 import { setVerbose } from "./utils/logger.ts";
 import { getVaultPath } from "./config.ts";
 
@@ -92,6 +94,25 @@ program
   .option("--context <file>", "Pre-seed with a note's content")
   .action(async (options: { model?: string; context?: string }) => {
     await chatCommand(options);
+  });
+
+program
+  .command("link-suggest")
+  .description("Suggest [[wikilinks]] for a note based on semantic search")
+  .argument("<file>", "Path to note file (relative to vault)")
+  .option("--apply", "Auto-insert suggested links into the file", false)
+  .option("--model <model>", "Override default model")
+  .action(async (file: string, options: { apply: boolean; model?: string }) => {
+    await linkSuggestCommand(file, options);
+  });
+
+program
+  .command("review")
+  .description("Review recent vault changes and surface insights")
+  .option("--recent <days>", "Number of days to look back (default: 7)")
+  .option("--model <model>", "Override default model")
+  .action(async (options: { recent?: string; model?: string }) => {
+    await reviewCommand(options);
   });
 
 program.parse();

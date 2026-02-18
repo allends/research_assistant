@@ -53,6 +53,8 @@ try {
   if (!stdout.includes("init")) throw new Error("Missing 'init' command");
   if (!stdout.includes("ask")) throw new Error("Missing 'ask' command");
   if (!stdout.includes("chat")) throw new Error("Missing 'chat' command");
+  if (!stdout.includes("link-suggest")) throw new Error("Missing 'link-suggest' command");
+  if (!stdout.includes("review")) throw new Error("Missing 'review' command");
   ok("ra --help", "lists all commands");
 } catch (e) { fail("ra --help", e); }
 
@@ -94,6 +96,22 @@ try {
   if (!stdout.includes("--context")) throw new Error("Missing --context option");
   ok("ra chat --help", "shows options");
 } catch (e) { fail("ra chat --help", e); }
+
+try {
+  const { stdout, exitCode } = await runCli(["link-suggest", "--help"]);
+  if (exitCode !== 0) throw new Error(`Exit code ${exitCode}`);
+  if (!stdout.includes("--apply")) throw new Error("Missing --apply option");
+  if (!stdout.includes("--model")) throw new Error("Missing --model option");
+  ok("ra link-suggest --help", "shows options");
+} catch (e) { fail("ra link-suggest --help", e); }
+
+try {
+  const { stdout, exitCode } = await runCli(["review", "--help"]);
+  if (exitCode !== 0) throw new Error(`Exit code ${exitCode}`);
+  if (!stdout.includes("--recent")) throw new Error("Missing --recent option");
+  if (!stdout.includes("--model")) throw new Error("Missing --model option");
+  ok("ra review --help", "shows options");
+} catch (e) { fail("ra review --help", e); }
 
 // ── Dev Mode Config Bypass ──
 

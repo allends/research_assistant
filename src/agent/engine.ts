@@ -37,12 +37,12 @@ function writeAssistantContent(message: any): void {
 export async function askOnce(
   prompt: string,
   config: Config,
-  options: { model?: string; maxTurns?: number } = {},
+  options: { model?: string; maxTurns?: number; systemPrompt?: string } = {},
 ): Promise<void> {
   checkAuth();
 
   const vaultMcpServer = createVaultMcpServer(config.vault.path);
-  const systemPrompt = await askSystemPrompt(config);
+  const systemPrompt = options.systemPrompt ?? (await askSystemPrompt(config));
   const model = options.model ?? config.defaults.model;
   const maxTurns = options.maxTurns ?? config.agent.max_turns;
 
