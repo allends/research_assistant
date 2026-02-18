@@ -51,6 +51,8 @@ try {
   if (!stdout.includes("search")) throw new Error("Missing 'search' command");
   if (!stdout.includes("index")) throw new Error("Missing 'index' command");
   if (!stdout.includes("init")) throw new Error("Missing 'init' command");
+  if (!stdout.includes("ask")) throw new Error("Missing 'ask' command");
+  if (!stdout.includes("chat")) throw new Error("Missing 'chat' command");
   ok("ra --help", "lists all commands");
 } catch (e) { fail("ra --help", e); }
 
@@ -76,6 +78,22 @@ try {
   if (!stdout.includes("--status")) throw new Error("Missing --status option");
   ok("ra index --help", "shows options");
 } catch (e) { fail("ra index --help", e); }
+
+try {
+  const { stdout, exitCode } = await runCli(["ask", "--help"]);
+  if (exitCode !== 0) throw new Error(`Exit code ${exitCode}`);
+  if (!stdout.includes("--model")) throw new Error("Missing --model option");
+  if (!stdout.includes("--max-turns")) throw new Error("Missing --max-turns option");
+  ok("ra ask --help", "shows options");
+} catch (e) { fail("ra ask --help", e); }
+
+try {
+  const { stdout, exitCode } = await runCli(["chat", "--help"]);
+  if (exitCode !== 0) throw new Error(`Exit code ${exitCode}`);
+  if (!stdout.includes("--model")) throw new Error("Missing --model option");
+  if (!stdout.includes("--context")) throw new Error("Missing --context option");
+  ok("ra chat --help", "shows options");
+} catch (e) { fail("ra chat --help", e); }
 
 // ── Dev Mode Config Bypass ──
 

@@ -4,6 +4,8 @@ import { Command } from "commander";
 import { initCommand } from "./commands/init.ts";
 import { searchCommand } from "./commands/search.ts";
 import { indexCommand } from "./commands/index-cmd.ts";
+import { askCommand } from "./commands/ask.ts";
+import { chatCommand } from "./commands/chat.ts";
 import { setVerbose } from "./utils/logger.ts";
 import { getVaultPath } from "./config.ts";
 
@@ -71,6 +73,25 @@ program
   .option("--status", "Show index status", false)
   .action(async (options: { update: boolean; status: boolean }) => {
     await indexCommand(options);
+  });
+
+program
+  .command("ask")
+  .description("Ask a question about your vault (single-turn agent query)")
+  .argument("<question>", "Natural language question about your vault")
+  .option("--model <model>", "Override default model")
+  .option("--max-turns <n>", "Maximum agent turns (default: 25)")
+  .action(async (question: string, options: { model?: string; maxTurns?: string }) => {
+    await askCommand(question, options);
+  });
+
+program
+  .command("chat")
+  .description("Interactive chat session about your vault")
+  .option("--model <model>", "Override default model")
+  .option("--context <file>", "Pre-seed with a note's content")
+  .action(async (options: { model?: string; context?: string }) => {
+    await chatCommand(options);
   });
 
 program.parse();
