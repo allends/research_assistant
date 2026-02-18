@@ -18,7 +18,7 @@ export function formatSearchResults(results: QmdSearchResult[]): string {
     const r = results[i]!;
     const rank = `${DIM}${String(i + 1).padStart(2)}.${RESET}`;
     const score = `${YELLOW}[${r.score.toFixed(3)}]${RESET}`;
-    const path = `${CYAN}${r.path}${RESET}`;
+    const path = `${CYAN}${r.file}${RESET}`;
     const title = r.title ? ` ${BOLD}${r.title}${RESET}` : "";
 
     lines.push(`${rank} ${score} ${path}${title}`);

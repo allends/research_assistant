@@ -1,6 +1,6 @@
 export interface QmdSearchResult {
   docid: string;
-  path: string;
+  file: string;
   score: number;
   snippet?: string;
   title?: string;
