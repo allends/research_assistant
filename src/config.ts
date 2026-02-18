@@ -1,5 +1,5 @@
 import { homedir } from "os";
-import { join } from "path";
+import { join, resolve } from "path";
 import { existsSync, mkdirSync } from "fs";
 import type { Config } from "./types/config.ts";
 import { DEFAULT_CONFIG } from "./types/config.ts";
@@ -7,26 +7,48 @@ import { DEFAULT_CONFIG } from "./types/config.ts";
 const CONFIG_DIR = join(homedir(), ".research-assistant");
 const CONFIG_PATH = join(CONFIG_DIR, "config.json");
 
+export function isDevMode(): boolean {
+  const val = process.env.RA_DEV;
+  return val === "1" || val === "true";
+}
+
+export function getProjectRoot(): string {
+  return resolve(import.meta.dir, "..");
+}
+
 export function getConfigPath(): string {
   return CONFIG_PATH;
 }
 
 export function configExists(): boolean {
+  if (isDevMode()) return true;
   return existsSync(CONFIG_PATH);
 }
 
 export async function loadConfig(): Promise<Config> {
+  const devConfig: Config = isDevMode()
+    ? {
+        vault: {
+          path: join(getProjectRoot(), "test-vault"),
+          qmd_collection: "test-vault",
+          obsidian_cli: false,
+        },
+        defaults: { ...DEFAULT_CONFIG.defaults },
+        agent: { ...DEFAULT_CONFIG.agent },
+      }
+    : { ...DEFAULT_CONFIG };
+
   if (!existsSync(CONFIG_PATH)) {
-    return { ...DEFAULT_CONFIG };
+    return devConfig;
   }
 
   const raw = await Bun.file(CONFIG_PATH).text();
   const parsed = JSON.parse(raw) as Partial<Config>;
 
   return {
-    vault: { ...DEFAULT_CONFIG.vault, ...parsed.vault },
-    defaults: { ...DEFAULT_CONFIG.defaults, ...parsed.defaults },
-    agent: { ...DEFAULT_CONFIG.agent, ...parsed.agent },
+    vault: { ...devConfig.vault, ...parsed.vault },
+    defaults: { ...devConfig.defaults, ...parsed.defaults },
+    agent: { ...devConfig.agent, ...parsed.agent },
   };
 }
 

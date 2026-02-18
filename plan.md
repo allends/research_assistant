@@ -440,6 +440,17 @@ export async function ask(prompt: string, options: AskOptions) {
   - *All type definitions: `src/types/config.ts`, `src/types/vault.ts`, `src/types/search.ts`*
   - *Type-checks clean with `tsc --noEmit`*
 
+### Dev Environment Setup ✅ COMPLETED
+
+- [x] Created `test-vault/` with 13 synthetic notes across 5 folders (projects, daily-notes, references, areas, inbox)
+  - *Notes include YAML frontmatter, wikilinks, inline tags, cross-links, and varied vocabulary*
+  - *`.obsidian/app.json` present for vault validation*
+- [x] Dev mode via `RA_DEV=1` environment variable
+  - *`src/config.ts` — added `isDevMode()`, `getProjectRoot()`, updated `configExists()` and `loadConfig()`*
+  - *`.env` file with `RA_DEV=1` (gitignored, auto-loaded by Bun)*
+  - *Dev mode returns config pointing to `test-vault/` without needing `ra init`*
+  - *Real `~/.research-assistant/config.json` merges on top if it exists*
+
 ### Phase 2: Agent Integration (Days 3–4)
 
 - [ ] Install and configure Agent SDK (`@anthropic-ai/claude-agent-sdk`)
