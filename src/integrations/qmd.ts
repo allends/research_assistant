@@ -20,11 +20,14 @@ async function run(
     stderr: "pipe",
   });
 
-  const stdout = await new Response(proc.stdout).text();
-  const exitCode = await proc.exited;
+  // Read both streams concurrently to avoid deadlock when stderr buffer fills
+  const [stdout, stderr, exitCode] = await Promise.all([
+    new Response(proc.stdout).text(),
+    new Response(proc.stderr).text(),
+    proc.exited,
+  ]);
 
   if (exitCode !== 0) {
-    const stderr = await new Response(proc.stderr).text();
     throw new Error(`qmd ${args.join(" ")} failed (exit ${exitCode}): ${stderr}`);
   }
 

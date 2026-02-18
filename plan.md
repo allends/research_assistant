@@ -34,30 +34,42 @@ An Obsidian vault is a personal knowledge graph stored as markdown files. This p
 | CLI Framework | **`commander`** or **`citty`** | Lightweight CLI argument parsing |
 | Config | **`~/.research-assistant/config.json`** | Vault path, model preferences, QMD collection name |
 | Embedding Model | **Via QMD** (embeddinggemma-300M-Q8_0, GGUF) | QMD handles embedding generation and storage via node-llama-cpp. No separate embedding infra needed. |
+| QMD Execution | **`node`** (not `bun`) | Bun's built-in SQLite on macOS uses Apple's SQLite which lacks `loadExtension()`, breaking sqlite-vec. QMD entry point resolved via `import.meta.resolve()` and run as a Node subprocess. |
 
 ### Key Dependency Versions
 
 ```json
 {
   "name": "research-assistant",
+  "version": "0.1.0",
+  "type": "module",
+  "private": true,
   "bin": {
     "ra": "./src/index.ts",
     "research-assistant": "./src/index.ts"
   },
   "dependencies": {
-    "@anthropic-ai/claude-agent-sdk": "^0.2.0",
+    "@tobilu/qmd": "^1.0.6",
     "commander": "^12.0.0",
     "gray-matter": "^4.0.3",
     "glob": "^11.0.0"
   },
+  "scripts": {
+    "test:smoke": "bun run tests/dev-smoke.ts",
+    "test:cli": "bun run tests/cli-smoke.ts",
+    "test:all": "bun run test:smoke && bun run test:cli"
+  },
   "devDependencies": {
     "typescript": "^5.7.0",
     "@types/bun": "latest"
+  },
+  "overrides": {
+    "better-sqlite3": "^12.6.0"
   }
 }
 ```
 
-QMD is installed globally: `bun install -g @tobilu/qmd`
+> **Note:** QMD is installed as a **local dependency**, not globally. It is invoked via `node` (not `bun`) because Bun's macOS SQLite lacks `loadExtension()` support needed by sqlite-vec. The Agent SDK (`@anthropic-ai/claude-agent-sdk`) will be added in Phase 2.
 
 ---
 
@@ -131,50 +143,65 @@ User: "ra ask 'what are my open project threads?'"
 ```
 research-assistant/
 ├── src/
-│   ├── index.ts              # CLI entry point (commander setup)
-│   ├── config.ts             # Config loading (~/.research-assistant/config.json)
+│   ├── index.ts              # CLI entry point (commander setup, global --verbose flag)
+│   ├── config.ts             # Config loading (~/.research-assistant/config.json + RA_DEV/RA_VAULT env)
 │   ├── commands/
-│   │   ├── search.ts         # Direct QMD search passthrough + formatting
-│   │   ├── ask.ts            # Single-turn agent Q&A over vault
-│   │   ├── chat.ts           # Multi-turn conversational agent
-│   │   ├── link-suggest.ts   # Suggest [[wikilinks]] for a note
-│   │   ├── review.ts         # Review recent changes, surface insights
-│   │   ├── index-cmd.ts      # (Re)index vault with QMD
-│   │   └── init.ts           # Initialize research-assistant for a vault
-│   ├── agent/
+│   │   ├── search.ts         # ✅ Direct QMD search passthrough + formatting
+│   │   ├── ask.ts            # Single-turn agent Q&A over vault (Phase 2)
+│   │   ├── chat.ts           # Multi-turn conversational agent (Phase 2)
+│   │   ├── link-suggest.ts   # Suggest [[wikilinks]] for a note (Phase 3)
+│   │   ├── review.ts         # Review recent changes, surface insights (Phase 3)
+│   │   ├── index-cmd.ts      # ✅ (Re)index vault with QMD
+│   │   └── init.ts           # ✅ Initialize research-assistant for a vault
+│   ├── agent/                # (Phase 2 — not yet created)
 │   │   ├── engine.ts         # Agent SDK wrapper, session management
 │   │   ├── system-prompts.ts # System prompts per command
 │   │   ├── tools.ts          # MCP tool definitions
 │   │   └── sub-agents.ts     # Sub-agent definitions (researcher, writer, linker)
 │   ├── integrations/
-│   │   ├── qmd.ts            # QMD CLI wrapper (spawn + parse JSON output)
-│   │   ├── obsidian-cli.ts   # Obsidian CLI wrapper (eval, commands)
-│   │   └── vault-fs.ts       # Direct filesystem access (fallback)
+│   │   ├── qmd.ts            # ✅ QMD wrapper (node subprocess, import.meta.resolve entry point)
+│   │   ├── obsidian-cli.ts   # ✅ Obsidian CLI wrapper (eval, commands)
+│   │   └── vault-fs.ts       # ✅ Direct filesystem access (fallback)
 │   ├── utils/
-│   │   ├── markdown.ts       # Frontmatter parsing, wikilink extraction
-│   │   ├── formatter.ts      # Terminal output formatting
-│   │   └── logger.ts         # Structured logging
+│   │   ├── markdown.ts       # ✅ Wikilink extraction, tag extraction, heading extraction
+│   │   ├── formatter.ts      # ✅ Terminal output formatting (colored scores, file paths, snippets)
+│   │   └── logger.ts         # ✅ Structured logging (debug/info/error/warn, setVerbose)
 │   └── types/
-│       ├── config.ts         # Config schema types
-│       ├── vault.ts          # Vault/note types
-│       └── search.ts         # Search result types
-├── CLAUDE.md                 # Agent SDK project memory
-├── package.json
-├── tsconfig.json
-├── bunfig.toml
-└── README.md
+│       ├── config.ts         # ✅ Config schema types + DEFAULT_CONFIG
+│       ├── vault.ts          # ✅ Vault/note types
+│       └── search.ts         # ✅ Search result types, QmdSearchResult, QmdStatusResponse, SearchMode
+├── tests/
+│   ├── dev-smoke.ts          # ✅ Config, vault-fs, markdown utils, cross-links, frontmatter tests
+│   └── cli-smoke.ts          # ✅ CLI integration tests (help, version, dev mode bypass, init validation)
+├── test-vault/               # ✅ 13 synthetic notes across 5 folders
+│   ├── .obsidian/app.json
+│   ├── projects/             # research-assistant.md, home-automation.md
+│   ├── daily-notes/          # 2026-02-10.md, 2026-02-11.md, 2026-02-12.md
+│   ├── references/           # obsidian-plugin-api.md, typescript-patterns.md, vector-search.md
+│   ├── areas/                # health.md, programming.md, reading-list.md
+│   └── inbox/                # article-clip.md, fleeting-thought.md
+├── docs/
+│   └── cli.md                # ✅ CLI reference documentation
+├── setup.sh                  # ✅ One-step dev environment setup (bun, deps, .env, qmd check)
+├── .env                      # RA_DEV=1, RA_VAULT=./test-vault (gitignored)
+├── CLAUDE.md                 # ✅ Bun conventions, API preferences, testing, frontend patterns
+├── package.json              # ✅ With bin entries, scripts, overrides
+├── tsconfig.json             # ✅ Strict mode
+└── README.md                 # ✅ Basic project description
 ```
 
 ---
 
 ## MVP Commands
 
-### 1. `ra init`
+### 1. `ra init [vault-path]`
 
 ```bash
 ra init ~/Obsidian/MyVault
+ra init                      # uses RA_VAULT env var
 ```
 
+- Vault path argument is optional — defaults to `RA_VAULT` environment variable if not provided
 - Detects vault path, validates it's an Obsidian vault (has `.obsidian/` dir)
 - Creates `~/.research-assistant/config.json`
 - Registers vault as a QMD collection: `qmd collection add <path> --name <vault-name>`
@@ -408,6 +435,16 @@ export async function ask(prompt: string, options: AskOptions) {
 }
 ```
 
+### Environment Variables
+
+| Variable | Effect |
+|----------|--------|
+| `RA_DEV` | Set to `1` or `true` to use dev mode (skips config file requirement) |
+| `RA_VAULT` | Override vault path from environment (e.g., `RA_VAULT=./test-vault`). Takes priority over config file. |
+
+Both `RA_DEV=1` and `RA_VAULT=<path>` bypass the requirement for `~/.research-assistant/config.json`. The collection name is auto-derived from the vault directory name. If `~/.research-assistant/config.json` exists, its values are merged on top of the env-derived defaults.
+```
+
 ---
 
 ## Implementation Plan (Phased)
@@ -417,12 +454,20 @@ export async function ask(prompt: string, options: AskOptions) {
 - [x] Project scaffolding: `bun init`, tsconfig, package.json
   - *Bun 1.3.9, TypeScript 5.9.3, strict mode enabled*
   - *Bin entries: `ra` and `research-assistant` pointing to `./src/index.ts`*
-  - *Dependencies: commander@12.1.0, glob@11.1.0, gray-matter@4.0.3*
+  - *Dependencies: commander@12.1.0, glob@11.1.0, gray-matter@4.0.3, @tobilu/qmd@^1.0.6*
+  - *`better-sqlite3@^12.6.0` override in package.json for compatibility*
 - [x] Config system: load/save `~/.research-assistant/config.json`
-  - *`src/config.ts` — loadConfig(), saveConfig(), validateVaultPath(), configExists()*
+  - *`src/config.ts` — `loadConfig()`, `saveConfig()`, `validateVaultPath()`, `configExists()`, `getConfigPath()`, `getVaultPath()`*
   - *Typed config with defaults via `src/types/config.ts`*
+  - *`RA_VAULT` env var support: overrides vault path from environment (e.g., `RA_VAULT=./test-vault`)*
+  - *`RA_DEV` and `RA_VAULT` both trigger config bypass — no `~/.research-assistant/config.json` required*
+  - *Vault path resolved via `resolve()` for absolute path normalization*
+  - *Collection name auto-derived from vault directory name (lowercased, non-alphanumeric replaced with dashes)*
 - [x] QMD wrapper (`src/integrations/qmd.ts`):
-  - *Uses `Bun.spawn` for subprocess execution, parses JSON output*
+  - *QMD installed as a **local dependency** (`@tobilu/qmd` in package.json), NOT globally*
+  - *Resolves QMD entry point via `import.meta.resolve("@tobilu/qmd/dist/qmd.js")`*
+  - *Runs via `node` (not `bun`) because Bun's built-in SQLite on macOS uses Apple's SQLite which doesn't support `loadExtension()`, breaking sqlite-vec for vector search*
+  - *Uses `Bun.spawn` for subprocess execution, reads stdout/stderr concurrently via `Promise.all` to avoid deadlock*
   - *Methods: `search()`, `vsearch()`, `query()`, `hybridSearch()`, `get()`, `multiGet()`, `status()`, `collectionAdd()`, `contextAdd()`, `embed()`, `update()`, `isAvailable()`*
 - [x] Obsidian CLI wrapper (`src/integrations/obsidian-cli.ts`):
   - *`evalCode()`, `isAvailable()`, `listFiles()`, `readFile()`, `searchContent()`, `readProperty()`, `getVersion()`*
@@ -433,10 +478,12 @@ export async function ask(prompt: string, options: AskOptions) {
   - *Also created `src/utils/markdown.ts` with additional helpers: `extractTags()`, `extractHeadings()`*
 - [x] CLI skeleton with `commander`:
   - *`init`, `search`, `index` commands implemented*
+  - *`init`: accepts optional `[vault-path]` argument, defaults to `RA_VAULT` env var if not provided*
   - *`init`: validates vault, checks QMD + Obsidian CLI, registers collection, runs initial indexing*
   - *`search`: supports `--mode keyword|semantic|hybrid`, `--limit`, `--min-score`, `--json`*
   - *`index`: supports `--update` (incremental) and `--status` flags*
-  - *Also created: `src/utils/formatter.ts` (colored terminal output), `src/utils/logger.ts` (debug/info/error/warn)*
+  - *Global `-v, --verbose` flag with `preAction` hook to set verbose logging*
+  - *Also created: `src/utils/formatter.ts` (colored terminal output), `src/utils/logger.ts` (debug/info/error/warn with `setVerbose()`)*
   - *All type definitions: `src/types/config.ts`, `src/types/vault.ts`, `src/types/search.ts`*
   - *Type-checks clean with `tsc --noEmit`*
 
@@ -445,11 +492,26 @@ export async function ask(prompt: string, options: AskOptions) {
 - [x] Created `test-vault/` with 13 synthetic notes across 5 folders (projects, daily-notes, references, areas, inbox)
   - *Notes include YAML frontmatter, wikilinks, inline tags, cross-links, and varied vocabulary*
   - *`.obsidian/app.json` present for vault validation*
-- [x] Dev mode via `RA_DEV=1` environment variable
-  - *`src/config.ts` — added `isDevMode()`, `getProjectRoot()`, updated `configExists()` and `loadConfig()`*
-  - *`.env` file with `RA_DEV=1` (gitignored, auto-loaded by Bun)*
+  - *All 13 notes have `title`, `tags`, and `created` frontmatter fields*
+  - *Cross-folder wikilinks verified (≥5 notes link across folders)*
+- [x] Dev mode via `RA_DEV=1` and `RA_VAULT` environment variables
+  - *`src/config.ts` — added `isDevMode()`, `getProjectRoot()`, `getVaultPath()`, updated `configExists()` and `loadConfig()`*
+  - *`.env` file with `RA_DEV=1` and `RA_VAULT=./test-vault` (gitignored, auto-loaded by Bun)*
   - *Dev mode returns config pointing to `test-vault/` without needing `ra init`*
   - *Real `~/.research-assistant/config.json` merges on top if it exists*
+- [x] `setup.sh` — one-step dev environment setup script
+  - *Checks for bun, runs `bun install`, creates `.env` with defaults if missing*
+  - *Checks for qmd availability and warns if not found*
+  - *Detects vault from `RA_VAULT` in `.env` and prompts to run `ra init`*
+- [x] Smoke tests (`tests/dev-smoke.ts`, `tests/cli-smoke.ts`)
+  - *`bun run test:smoke` — unit-level tests for config, vault-fs, markdown utilities, cross-links, frontmatter completeness*
+  - *`bun run test:cli` — CLI integration tests: `--help`, `--version`, `search --help`, `index --help`, dev mode config bypass, init vault validation*
+  - *`bun run test:all` — runs both test suites sequentially*
+  - *Custom test harness with colored pass/fail output (no test framework dependency)*
+- [x] Documentation
+  - *`docs/cli.md` — CLI reference with commands, options, environment variables, config location*
+  - *`README.md` — basic project description*
+  - *`CLAUDE.md` — project instructions for Claude Code (Bun conventions, API preferences, testing, frontend patterns)*
 
 ### Phase 2: Agent Integration (Days 3–4)
 
@@ -507,7 +569,7 @@ This is a CLI tool, not a plugin. It runs in the terminal alongside your develop
 
 1. **Obsidian CLI stability** — Early Access feature. API may change between Obsidian releases. Mitigation: robust fallback to filesystem, version checking, and error handling in the wrapper layer.
 2. **MCP tool name prefixing** — The exact convention (`mcp__<server>__<tool>`) needs verification at implementation time. Getting this wrong means the agent can't call tools.
-3. **Bun compatibility** — The Agent SDK targets Node.js 18+. Bun is listed as a supported runtime (`executable: 'bun'`), but edge cases may exist.
+3. **Bun compatibility** — The Agent SDK targets Node.js 18+. Bun is listed as a supported runtime (`executable: 'bun'`), but edge cases may exist. **Resolved for QMD:** Bun's macOS SQLite lacks `loadExtension()`, so QMD runs via `node` subprocess. The Agent SDK itself still runs under Bun.
 4. **QMD embedding model size** — The embeddinggemma-300M-Q8_0 model is ~300MB. First-run experience includes a model download. Should be communicated during `init`.
 5. **V1 chat limitations** — Using V1 `query()` with manual conversation history means re-sending all messages each turn. For long conversations this could hit context limits. Consider implementing conversation truncation or summarization.
 
@@ -538,22 +600,24 @@ This is a CLI tool, not a plugin. It runs in the terminal alongside your develop
 
 ## Notes for the Implementing Agent
 
-1. **Start with the integrations layer** — get QMD and Obsidian CLI wrappers working first with tests. Everything else depends on reliable subprocess execution and JSON parsing.
+1. **Integrations layer is complete** — QMD and Obsidian CLI wrappers are working with smoke tests. The foundation is solid for Phase 2.
 
-2. **Use Bun's shell** (`Bun.spawn` or `bun:shell` `$` tagged template) for subprocess management. It's cleaner than Node's `child_process`.
+2. **Use `Bun.spawn`** for subprocess management. Read stdout and stderr concurrently via `Promise.all([new Response(proc.stdout).text(), new Response(proc.stderr).text(), proc.exited])` to avoid deadlock when buffers fill.
 
-3. **QMD's `--json` flag** is your best friend. All QMD commands support it and return structured data. Parse with `JSON.parse()` — no scraping needed. Other output formats available: `--csv`, `--md`, `--xml`, `--files`.
+3. **QMD runs via `node`, not `bun`** — Bun's built-in SQLite on macOS uses Apple's SQLite which lacks `loadExtension()`, breaking sqlite-vec. The QMD entry point is resolved via `import.meta.resolve("@tobilu/qmd/dist/qmd.js")` and executed as a Node subprocess.
 
-4. **Obsidian CLI availability** should be checked at runtime, not assumed. Build the fallback path from day one. Note the CLI is Early Access and command names use a category:subcommand format (e.g., `files list`, `property:read`, `search content`).
+4. **QMD's `--json` flag** is your best friend. All QMD commands support it and return structured data. Parse with `JSON.parse()` — no scraping needed. Other output formats available: `--csv`, `--md`, `--xml`, `--files`.
 
-5. **The Agent SDK's `tool()` helper** uses Zod schemas. Keep tool definitions clean and well-documented — the descriptions are what the agent sees. The handler must return `{ content: [{ type: "text", text: "..." }] }` (MCP CallToolResult format), **not** `{ type: "text", text: "..." }`.
+5. **Obsidian CLI availability** should be checked at runtime, not assumed. The fallback path (vault-fs.ts) is already built. Note the CLI is Early Access and command names use a category:subcommand format (e.g., `files list`, `property:read`, `search content`).
 
-6. **MCP tool references** in `allowedTools` and sub-agent `tools` arrays likely need the `mcp__<server-name>__<tool-name>` prefix. Verify this convention against SDK docs at implementation time.
+6. **The Agent SDK's `tool()` helper** uses Zod schemas. Keep tool definitions clean and well-documented — the descriptions are what the agent sees. The handler must return `{ content: [{ type: "text", text: "..." }] }` (MCP CallToolResult format), **not** `{ type: "text", text: "..." }`.
 
-7. **System prompts** should include vault-specific context: collection name, number of notes, key folders, active tags. Populate this from `qmd status` and vault config.
+7. **MCP tool references** in `allowedTools` and sub-agent `tools` arrays likely need the `mcp__<server-name>__<tool-name>` prefix. Verify this convention against SDK docs at implementation time.
 
-8. **Stream output** from the agent to the terminal. Don't buffer the entire response. The Agent SDK's `query()` returns an async generator of `SDKMessage` objects. For assistant messages, iterate over `message.message.content` blocks and write text blocks to stdout.
+8. **System prompts** should include vault-specific context: collection name, number of notes, key folders, active tags. Populate this from `qmd status` and vault config.
 
-9. **Include "Task" in allowedTools** if you want the main agent to delegate to sub-agents — the SDK uses the Task tool internally for sub-agent dispatch.
+9. **Stream output** from the agent to the terminal. Don't buffer the entire response. The Agent SDK's `query()` returns an async generator of `SDKMessage` objects. For assistant messages, iterate over `message.message.content` blocks and write text blocks to stdout.
 
-10. **CLAUDE.md** in the project root should describe the project architecture and conventions for when Claude Code itself works on this codebase.
+10. **Include "Task" in allowedTools** if you want the main agent to delegate to sub-agents — the SDK uses the Task tool internally for sub-agent dispatch.
+
+11. **CLAUDE.md** in the project root is already created with Bun conventions, API preferences, testing, and frontend patterns.
