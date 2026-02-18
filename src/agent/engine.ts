@@ -60,6 +60,8 @@ export async function askOnce(
     },
   });
 
+  let exitCode = 0;
+
   for await (const message of conversation) {
     writeAssistantContent(message);
 
@@ -68,11 +70,16 @@ export async function askOnce(
         console.error(
           `\nAgent stopped: ${message.subtype}${message.errors?.length ? " — " + message.errors.join(", ") : ""}`,
         );
+        exitCode = 1;
       }
     }
   }
 
   process.stdout.write("\n");
+
+  // The MCP server keeps internal handles open, preventing the process from
+  // exiting naturally. Force exit for single-shot commands.
+  process.exit(exitCode);
 }
 
 export async function chatLoop(

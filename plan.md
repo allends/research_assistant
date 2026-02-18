@@ -525,7 +525,7 @@ Both `RA_DEV=1` and `RA_VAULT=<path>` bypass the requirement for `~/.research-as
 - [x] Install Agent SDK and dependencies
   - *`@anthropic-ai/claude-agent-sdk@^0.2.45` and `zod@^4.3.6` added to package.json*
   - *Authentication: `ANTHROPIC_API_KEY` (API billing) or `CLAUDE_CODE_OAUTH_TOKEN` (Max subscription billing)*
-  - *Added `bun run ra` script for dogfooding (`bun run ra -- search "query"`)*
+  - *Added `bun run ra` script for dogfooding (`bun run ra search "query"`)*
 - [x] Define custom tools (`src/agent/tools.ts`)
   - *`createVaultMcpServer(vaultPath)` factory function — creates MCP server scoped to a vault path*
   - *6 tools: `qmd_search`, `qmd_get`, `vault_list`, `vault_read`, `vault_write`, `obsidian_eval`*

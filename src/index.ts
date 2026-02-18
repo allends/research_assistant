@@ -8,6 +8,7 @@ import { askCommand } from "./commands/ask.ts";
 import { chatCommand } from "./commands/chat.ts";
 import { linkSuggestCommand } from "./commands/link-suggest.ts";
 import { reviewCommand } from "./commands/review.ts";
+import { listCommand } from "./commands/list.ts";
 import { setVerbose } from "./utils/logger.ts";
 import { getVaultPath } from "./config.ts";
 
@@ -113,6 +114,15 @@ program
   .option("--model <model>", "Override default model")
   .action(async (options: { recent?: string; model?: string }) => {
     await reviewCommand(options);
+  });
+
+program
+  .command("list")
+  .alias("ls")
+  .description("List notes in your vault")
+  .option("--json", "Output as JSON", false)
+  .action(async (options: { json: boolean }) => {
+    await listCommand(options);
   });
 
 program.parse();

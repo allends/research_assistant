@@ -27,7 +27,7 @@ export async function linkSuggestCommand(
 
   await askOnce(prompt, config, {
     model: options.model,
-    maxTurns: 15,
+    maxTurns: 6,
     systemPrompt,
   });
 }

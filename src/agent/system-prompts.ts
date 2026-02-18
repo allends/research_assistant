@@ -65,10 +65,11 @@ The note already links to: ${existingLinks.length > 0 ? existingLinks.map((l) =>
 
 ## Instructions
 1. Read the target note using vault_read
-2. Identify the key concepts, topics, and entities in the note
-3. Use qmd_search (hybrid mode) to find related notes for each concept
-4. Filter out notes that are already linked
-5. Suggest wikilinks with a brief reason for each connection
+2. Identify the 2-3 most important concepts/topics in the note
+3. Do ONE qmd_search (hybrid mode) using a query that captures the note's main theme — do NOT search for every concept individually
+4. If the first search misses an obvious topic, do at most ONE more search
+5. Filter out notes that are already linked
+6. Output your suggestions immediately — do NOT do additional rounds of searching
 
 ## Output Format
 For each suggestion, output exactly this format:

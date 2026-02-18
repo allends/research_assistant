@@ -45,7 +45,7 @@ tests/
 ## Scripts
 
 ```sh
-bun run ra -- <command>    # Dogfood the CLI (e.g. bun run ra -- search "query")
+bun run ra <command>       # Dogfood the CLI (e.g. bun run ra search "query")
 bun run test:smoke         # Integration smoke tests
 bun run test:cli           # CLI end-to-end tests
 bun run test:all           # All tests (smoke + cli)
@@ -56,14 +56,14 @@ bun run test:all           # All tests (smoke + cli)
 Test against the local `test-vault/` using dev mode:
 
 ```sh
-RA_DEV=1 bun run ra -- init
-RA_DEV=1 bun run ra -- index
-RA_DEV=1 bun run ra -- search "some topic"
-RA_DEV=1 bun run ra -- ask "What notes discuss X?"
-RA_DEV=1 bun run ra -- chat
+RA_DEV=1 bun run ra init
+RA_DEV=1 bun run ra index
+RA_DEV=1 bun run ra search "some topic"
+RA_DEV=1 bun run ra ask "What notes discuss X?"
+RA_DEV=1 bun run ra chat
 ```
 
-Or point at any vault: `RA_VAULT=/path/to/vault bun run ra -- search "query"`
+Or point at any vault: `RA_VAULT=/path/to/vault bun run ra search "query"`
 
 ## Authentication
 
