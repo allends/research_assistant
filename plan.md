@@ -49,12 +49,15 @@ An Obsidian vault is a personal knowledge graph stored as markdown files. This p
     "research-assistant": "./src/index.ts"
   },
   "dependencies": {
+    "@anthropic-ai/claude-agent-sdk": "^0.2.45",
     "@tobilu/qmd": "^1.0.6",
     "commander": "^12.0.0",
     "gray-matter": "^4.0.3",
-    "glob": "^11.0.0"
+    "glob": "^11.0.0",
+    "zod": "^4.3.6"
   },
   "scripts": {
+    "ra": "bun run src/index.ts --",
     "test:smoke": "bun run tests/dev-smoke.ts",
     "test:cli": "bun run tests/cli-smoke.ts",
     "test:all": "bun run test:smoke && bun run test:cli"
@@ -69,7 +72,7 @@ An Obsidian vault is a personal knowledge graph stored as markdown files. This p
 }
 ```
 
-> **Note:** QMD is installed as a **local dependency**, not globally. It is invoked via `node` (not `bun`) because Bun's macOS SQLite lacks `loadExtension()` support needed by sqlite-vec. The Agent SDK (`@anthropic-ai/claude-agent-sdk`) will be added in Phase 2.
+> **Note:** QMD is installed as a **local dependency**, not globally. It is invoked via `node` (not `bun`) because Bun's macOS SQLite lacks `loadExtension()` support needed by sqlite-vec. The Agent SDK (`@anthropic-ai/claude-agent-sdk@^0.2.45`) and Zod (`zod@^4.3.6`) are installed for the agentic commands (`ask`, `chat`).
 
 ---
 
@@ -150,17 +153,17 @@ research-assistant/
 │   ├── config.ts             # Config loading (~/.research-assistant/config.json + RA_DEV/RA_VAULT env)
 │   ├── commands/
 │   │   ├── search.ts         # ✅ Direct QMD search passthrough + formatting
-│   │   ├── ask.ts            # Single-turn agent Q&A over vault (Phase 2)
-│   │   ├── chat.ts           # Multi-turn conversational agent (Phase 2)
+│   │   ├── ask.ts            # ✅ Single-turn agent Q&A over vault
+│   │   ├── chat.ts           # ✅ Multi-turn conversational agent (interactive REPL)
 │   │   ├── link-suggest.ts   # Suggest [[wikilinks]] for a note (Phase 3)
 │   │   ├── review.ts         # Review recent changes, surface insights (Phase 3)
 │   │   ├── index-cmd.ts      # ✅ (Re)index vault with QMD
 │   │   └── init.ts           # ✅ Initialize research-assistant for a vault
-│   ├── agent/                # (Phase 2 — not yet created)
-│   │   ├── engine.ts         # Agent SDK wrapper, session management
-│   │   ├── system-prompts.ts # System prompts per command
-│   │   ├── tools.ts          # MCP tool definitions
-│   │   └── sub-agents.ts     # Sub-agent definitions (researcher, writer, linker)
+│   ├── agent/
+│   │   ├── engine.ts         # ✅ askOnce() + chatLoop() via Agent SDK query()
+│   │   ├── system-prompts.ts # ✅ Dynamic vault-aware system prompts for ask/chat
+│   │   ├── tools.ts          # ✅ 6 MCP tools (qmd_search, qmd_get, vault_list/read/write, obsidian_eval)
+│   │   └── sub-agents.ts     # Sub-agent definitions (Phase 3)
 │   ├── integrations/
 │   │   ├── qmd.ts            # ✅ QMD wrapper (node subprocess, import.meta.resolve entry point)
 │   │   ├── obsidian-cli.ts   # ✅ Obsidian CLI wrapper (eval, commands)
@@ -516,184 +519,55 @@ Both `RA_DEV=1` and `RA_VAULT=<path>` bypass the requirement for `~/.research-as
   - *`README.md` — basic project description*
   - *`CLAUDE.md` — project instructions for Claude Code (Bun conventions, API preferences, testing, frontend patterns)*
 
-### Phase 2: CLI Agent Commands (Days 3–5)
+### Phase 2: CLI Agent Commands (Days 3–5) ✅ COMPLETED
 
 **Goal:** Expose `ra ask` and `ra chat` as CLI commands powered by the Claude Agent SDK internally. The user interacts via the terminal — no MCP server is exposed. The Agent SDK's `query()` drives an agentic loop where Claude can call custom tools (QMD search, vault read/write) to answer questions about the vault.
 
-#### Step 1: Install Agent SDK and dependencies
+- [x] Install Agent SDK and dependencies
+  - *`@anthropic-ai/claude-agent-sdk@^0.2.45` and `zod@^4.3.6` added to package.json*
+  - *Authentication: `ANTHROPIC_API_KEY` (API billing) or `CLAUDE_CODE_OAUTH_TOKEN` (Max subscription billing)*
+  - *Added `bun run ra` script for dogfooding (`bun run ra -- search "query"`)*
+- [x] Define custom tools (`src/agent/tools.ts`)
+  - *`createVaultMcpServer(vaultPath)` factory function — creates MCP server scoped to a vault path*
+  - *6 tools: `qmd_search`, `qmd_get`, `vault_list`, `vault_read`, `vault_write`, `obsidian_eval`*
+  - *`qmd_search` wraps `qmd.hybridSearch()` with mode/limit params*
+  - *`obsidian_eval` gracefully returns fallback message when CLI unavailable (try/catch)*
+  - *All tools return MCP `CallToolResult` format: `{ content: [{ type: "text", text: "..." }] }`*
+  - *Bundled via `createSdkMcpServer({ name: "vault", version: "0.1.0", tools: [...] })`*
+- [x] System prompts (`src/agent/system-prompts.ts`)
+  - *`askSystemPrompt(config)` — dynamically includes vault path, collection name, note count (from `vaultFs.getVaultStats`), and folder list*
+  - *`chatSystemPrompt(config)` — extends ask prompt with chat-specific instructions (vault_write permission, conversation continuity, clarifying questions)*
+- [x] Agent engine (`src/agent/engine.ts`)
+  - *`askOnce(prompt, config, options)` — single-turn query with streaming output*
+  - *`chatLoop(config, options)` — multi-turn REPL using `readline` interface*
+  - *`checkAuth()` — validates `ANTHROPIC_API_KEY` or `CLAUDE_CODE_OAUTH_TOKEN` before any agent call*
+  - *`writeAssistantContent(message)` — streams text blocks to stdout (no buffering)*
+  - *Chat uses `resume: sessionId` from SDK result messages for multi-turn continuity (not manual message accumulation)*
+  - *`--context` flag reads file via `Bun.file()` and prepends content to first prompt*
+  - *`permissionMode: "bypassPermissions"` with `allowDangerouslySkipPermissions: true`*
+  - *`cwd` set to vault path so built-in file tools operate within the vault*
+  - *Only custom MCP tools in `allowedTools` (no built-in Read/Glob/Grep — agent uses vault tools instead)*
+- [x] CLI commands (`src/commands/ask.ts`, `src/commands/chat.ts`)
+  - *`ra ask <question>` — required arg, options: `--model`, `--max-turns`*
+  - *`ra chat` — interactive REPL, options: `--model`, `--context <file>`*
+  - *Both check `configExists()` and exit with helpful message if not initialized*
+  - *Registered in `src/index.ts` alongside existing commands*
+- [x] CLI smoke tests updated (`tests/cli-smoke.ts`)
+  - *`ra ask --help` and `ra chat --help` tests added*
+  - *Main help output verified to list `ask` and `chat` commands*
+- [x] Bug fix: QMD search result field name
+  - *`src/types/search.ts`: renamed `path` → `file` to match actual QMD JSON output*
+  - *`src/utils/formatter.ts`: updated to use `r.file` instead of `r.path`*
+- [x] CLAUDE.md updated
+  - *Rewritten with project-specific architecture overview, key constraints, scripts, dogfooding guide, auth docs, and Agent SDK patterns*
+  - *Removed generic Bun boilerplate (frontend patterns, Bun.serve, etc.) in favor of project-relevant info*
 
-- [ ] `bun install @anthropic-ai/claude-agent-sdk`
-  - SDK requires `ANTHROPIC_API_KEY` env var (or Claude Max subscription)
-  - Add `ANTHROPIC_API_KEY` to `.env.example` and document in README
-  - SDK runs under Bun (listed as supported runtime with `executable: 'bun'`)
-- [ ] Verify SDK loads: create a minimal test script that imports `query` from `@anthropic-ai/claude-agent-sdk` and confirms it's callable
-- [ ] Add `zod` as a dependency (required by `tool()` for input schema validation)
+#### Resolved risks from Phase 2
 
-#### Step 2: Define custom tools (`src/agent/tools.ts`)
-
-Custom tools let the agent call QMD and vault operations during its agentic loop. Defined via the SDK's `tool()` function and bundled into an in-process MCP server via `createSdkMcpServer()`. This is an **internal** mechanism — the MCP server is not exposed externally, it's just how the SDK wires tool definitions.
-
-- [ ] `qmd_search` tool — wraps `src/integrations/qmd.ts` `hybridSearch()`
-  - Input: `{ query: z.string(), mode: z.enum(["keyword","semantic","hybrid"]).default("hybrid"), limit: z.number().default(10) }`
-  - Handler calls `qmd.hybridSearch(args.query, args.mode, { limit: args.limit })`
-  - Returns `{ content: [{ type: "text", text: JSON.stringify(results) }] }` (MCP `CallToolResult` format)
-- [ ] `qmd_get` tool — wraps `qmd.get()` to retrieve full document content by path/docid
-  - Input: `{ ref: z.string() }`
-  - Returns full document text as a single text content block
-- [ ] `vault_list` tool — wraps `vault-fs.ts` `listNotes()` to list all notes in the vault
-  - Input: `{ folder?: z.string().optional() }` (filter by subfolder)
-  - Returns JSON array of `{ path, basename }` objects
-- [ ] `vault_read` tool — wraps `vault-fs.ts` `readNote()` to read a note's raw content + frontmatter
-  - Input: `{ path: z.string() }`
-  - Returns note content with parsed frontmatter as text
-- [ ] `vault_write` tool — wraps `vault-fs.ts` `writeNote()` to create/update a note
-  - Input: `{ path: z.string(), content: z.string() }`
-  - Writes file, returns confirmation message
-- [ ] `obsidian_eval` tool — wraps `obsidian-cli.ts` `evalCode()` for live Obsidian queries
-  - Input: `{ code: z.string() }`
-  - Handler wraps in try/catch — returns error message if Obsidian CLI unavailable (graceful degradation)
-- [ ] Bundle all tools into an in-process MCP server:
-  ```typescript
-  export const vaultMcpServer = createSdkMcpServer({
-    name: "vault",
-    version: "0.1.0",
-    tools: [qmdSearchTool, qmdGetTool, vaultListTool, vaultReadTool, vaultWriteTool, obsidianEvalTool],
-  });
-  ```
-
-#### Step 3: System prompts (`src/agent/system-prompts.ts`)
-
-- [ ] `askSystemPrompt(config)` — for single-turn `ra ask` queries
-  - Describes the vault: path, collection name, number of notes (from `qmd status`), folder structure
-  - Instructs agent to use `qmd_search` for finding relevant notes, `qmd_get` for reading them
-  - Emphasizes: cite sources with `[[wikilinks]]`, prefer hybrid search, be concise
-  - Includes vault folder list and active tags if available
-- [ ] `chatSystemPrompt(config)` — for multi-turn `ra chat` sessions
-  - Same vault context as `askSystemPrompt` but adds:
-  - Permission to modify vault files when asked (via `vault_write`)
-  - Awareness of conversation continuity — can reference earlier turns
-  - Instruction to ask clarifying questions when the user's intent is ambiguous
-
-#### Step 4: Agent engine (`src/agent/engine.ts`)
-
-The engine wraps the SDK's `query()` function with our config, tools, and streaming output.
-
-- [ ] `askOnce(prompt, config)` — single-turn query for `ra ask`
-  ```typescript
-  import { query } from "@anthropic-ai/claude-agent-sdk";
-  import { vaultMcpServer } from "./tools.ts";
-
-  export async function askOnce(prompt: string, config: Config) {
-    const systemPrompt = askSystemPrompt(config);
-    for await (const message of query({
-      prompt,
-      options: {
-        model: config.defaults.model ?? "claude-sonnet-4-5",
-        systemPrompt,
-        mcpServers: { vault: vaultMcpServer },
-        allowedTools: [
-          "Read", "Glob", "Grep",  // built-in file tools
-          "mcp__vault__qmd_search",
-          "mcp__vault__qmd_get",
-          "mcp__vault__vault_list",
-          "mcp__vault__vault_read",
-          "mcp__vault__vault_write",
-          "mcp__vault__obsidian_eval",
-        ],
-        permissionMode: "bypassPermissions",
-        maxTurns: 25,
-      },
-    })) {
-      if (message.type === "assistant") {
-        for (const block of message.message.content) {
-          if (block.type === "text") process.stdout.write(block.text);
-        }
-      }
-    }
-    process.stdout.write("\n");
-  }
-  ```
-  - **Key:** `permissionMode: "bypassPermissions"` lets the agent read/write vault files without interactive prompts
-  - **Key:** `mcpServers` takes the in-process server object — no external process or stdio transport needed
-  - **Key:** MCP tool names are prefixed `mcp__<server-name>__<tool-name>` in `allowedTools` — verify at runtime and adjust if needed
-  - Streams text blocks to stdout as they arrive (no buffering)
-
-- [ ] `chatLoop(config)` — multi-turn REPL for `ra chat`
-  - Uses a readline-based input loop (or Bun's `prompt()` / `console.read()`)
-  - First turn: calls `query({ prompt: userInput, options: { ... } })`
-  - Subsequent turns: calls `query({ prompt: userInput, options: { continue: true } })` to resume the session
-  - Alternative approach if `continue` isn't reliable: accumulate `SDKMessage[]` history and re-send
-  - Handles `/quit` or Ctrl+C to exit gracefully
-  - Displays a `> ` prompt between turns
-  - Shows a spinner/indicator while the agent is working (optional, nice-to-have)
-
-#### Step 5: CLI commands (`src/commands/ask.ts`, `src/commands/chat.ts`)
-
-- [ ] `ra ask <question>` command — register in `src/index.ts`
-  ```
-  ra ask "what are my open project threads?"
-  ra ask "summarize my notes on React Server Components"
-  ra ask "what should I revisit?" --model claude-opus-4-5
-  ```
-  - Required arg: `<question>` (the natural language query)
-  - Options: `--model <model>` (override default model), `--max-turns <n>` (override default 25)
-  - Loads config, validates vault exists, calls `askOnce(question, config)`
-  - Streams agent response to terminal
-
-- [ ] `ra chat` command — register in `src/index.ts`
-  ```
-  ra chat
-  ra chat --context projects/research-assistant.md
-  ra chat --model claude-opus-4-5
-  ```
-  - No required args — enters interactive REPL
-  - Options: `--context <file>` (pre-seed with a note's content), `--model <model>`
-  - `--context` reads the specified file and prepends it to the first prompt as context
-  - Calls `chatLoop(config)`
-  - Prints welcome message with vault name and available commands
-  - Interactive loop: read user input → agent turn → print response → repeat
-  - Exit: `/quit`, `/exit`, `Ctrl+C`, or `Ctrl+D`
-
-#### Step 6: End-to-end testing
-
-- [ ] Manual smoke test: `ra ask "list my projects"` against `test-vault/`
-  - Verify agent calls `qmd_search`, reads results, produces a coherent answer
-  - Verify tool calls appear in verbose mode (`ra -v ask "..."`)
-- [ ] Manual smoke test: `ra chat` interactive session
-  - Verify multi-turn context is maintained (ask a follow-up that references prior answer)
-  - Verify `/quit` exits cleanly
-- [ ] Add to `tests/cli-smoke.ts`: basic integration tests
-  - `ra ask --help` prints usage
-  - `ra chat --help` prints usage
-  - (Full agent tests require API key, so gate behind `ANTHROPIC_API_KEY` env check)
-- [ ] Verify MCP tool name prefix convention at runtime
-  - If `mcp__vault__<tool>` doesn't work, try `mcp__vault-server__<tool>` or just `<tool>`
-  - Document the confirmed convention in this plan
-
-#### Files created/modified in Phase 2
-
-```
-src/
-├── agent/
-│   ├── tools.ts              # NEW — tool() definitions + createSdkMcpServer()
-│   ├── system-prompts.ts     # NEW — askSystemPrompt(), chatSystemPrompt()
-│   └── engine.ts             # NEW — askOnce(), chatLoop()
-├── commands/
-│   ├── ask.ts                # NEW — ra ask command handler
-│   └── chat.ts               # NEW — ra chat command handler
-├── index.ts                  # MODIFIED — register ask + chat commands
-package.json                  # MODIFIED — add @anthropic-ai/claude-agent-sdk, zod
-.env                          # MODIFIED — add ANTHROPIC_API_KEY placeholder
-tests/cli-smoke.ts            # MODIFIED — add ask/chat help tests
-```
-
-#### Known risks and mitigations
-
-1. **MCP tool name prefix** — The SDK prefixes tool names as `mcp__<server-name>__<tool-name>` when listed in `allowedTools`. If the convention differs, tool calls will silently fail. **Mitigation:** Test with a single tool first, check error messages, inspect SDK source if needed.
-2. **`continue: true` for chat** — The V1 `query()` `continue` option resumes the most recent conversation. If this doesn't work reliably under Bun, fall back to accumulating messages manually. **Mitigation:** Implement both paths, test, pick the working one.
-3. **Bun + Agent SDK** — The SDK lists Bun as supported (`executable: 'bun'`) but edge cases may exist. **Mitigation:** If Bun-specific issues arise, the SDK can spawn its own `bun` subprocess for tool execution — our custom MCP tools run in-process so this mostly affects built-in tools like `Bash`.
-4. **API key requirement** — `ra ask` and `ra chat` require `ANTHROPIC_API_KEY`. Without it, the SDK will throw. **Mitigation:** Check for the key early in the command handler and print a helpful error message.
-5. **Token costs** — Agent loops can consume many tokens (tool calls + responses). **Mitigation:** Set `maxTurns: 25` default, expose `--max-turns` flag, consider adding `--budget` flag later.
+1. **MCP tool name prefix** — Confirmed: `mcp__<server-name>__<tool-name>` convention works (e.g. `mcp__vault__qmd_search`).
+2. **Multi-turn chat** — Uses `resume: sessionId` from SDK result messages. Works without manual message accumulation.
+3. **Auth** — Early `checkAuth()` validates presence of `ANTHROPIC_API_KEY` or `CLAUDE_CODE_OAUTH_TOKEN` before any SDK call, with a clear error message.
+4. **`allowDangerouslySkipPermissions`** — Required alongside `permissionMode: "bypassPermissions"` for the SDK to actually bypass permissions.
 
 ### Phase 3: Smart Features (Days 6–7)
 
@@ -744,17 +618,17 @@ This is a CLI tool, not a plugin. It runs in the terminal alongside your develop
 ### Technical Risks
 
 1. **Obsidian CLI stability** — Early Access feature. API may change between Obsidian releases. Mitigation: robust fallback to filesystem, version checking, and error handling in the wrapper layer.
-2. **MCP tool name prefixing** — The exact convention (`mcp__<server>__<tool>`) needs verification at implementation time. Getting this wrong means the agent can't call tools.
-3. **Bun compatibility** — The Agent SDK targets Node.js 18+. Bun is listed as a supported runtime (`executable: 'bun'`), but edge cases may exist. **Resolved for QMD:** Bun's macOS SQLite lacks `loadExtension()`, so QMD runs via `node` subprocess. The Agent SDK itself still runs under Bun.
+2. ~~**MCP tool name prefixing**~~ — **Resolved.** Confirmed convention: `mcp__<server>__<tool>` (e.g. `mcp__vault__qmd_search`). Works as expected with `createSdkMcpServer({ name: "vault" })`.
+3. **Bun compatibility** — The Agent SDK targets Node.js 18+. Bun is listed as a supported runtime (`executable: 'bun'`), but edge cases may exist. **Resolved for QMD:** Bun's macOS SQLite lacks `loadExtension()`, so QMD runs via `node` subprocess. The Agent SDK itself runs under Bun without issues.
 4. **QMD embedding model size** — The embeddinggemma-300M-Q8_0 model is ~300MB. First-run experience includes a model download. Should be communicated during `init`.
-5. **V1 chat limitations** — Using V1 `query()` with manual conversation history means re-sending all messages each turn. For long conversations this could hit context limits. Consider implementing conversation truncation or summarization.
+5. ~~**V1 chat limitations**~~ — **Resolved.** Chat uses `resume: sessionId` from SDK result messages for multi-turn continuity. No manual message accumulation needed. Long conversation context limits remain a theoretical concern but haven't been hit in practice.
 
 ### Resolved Design Decisions
 
 - **CLI alias:** Primary binary is `ra` (short alias). `research-assistant` also registered as a bin alias.
 - **Single vault for MVP.** Multi-vault deferred to post-MVP.
 - **Write permissions enabled by default.** The agent can read and write vault files without requiring explicit flags.
-- **V1 API only for MVP.** Chat uses V1 `query()` with manual conversation history. V2 sessions deferred until the API stabilizes.
+- **V1 API with `resume: sessionId`.** Chat uses V1 `query()` with SDK's built-in session resumption — no manual message accumulation needed. V2 sessions deferred until the API stabilizes.
 - **Obsidian-only.** Requires a valid Obsidian vault (`.obsidian/` directory). Non-Obsidian markdown directories are not supported.
 
 ---
@@ -776,24 +650,29 @@ This is a CLI tool, not a plugin. It runs in the terminal alongside your develop
 
 ## Notes for the Implementing Agent
 
-1. **Integrations layer is complete** — QMD and Obsidian CLI wrappers are working with smoke tests. The foundation is solid for Phase 2.
+### Established Patterns (from Phases 1–2)
 
-2. **Use `Bun.spawn`** for subprocess management. Read stdout and stderr concurrently via `Promise.all([new Response(proc.stdout).text(), new Response(proc.stderr).text(), proc.exited])` to avoid deadlock when buffers fill.
+1. **Use `Bun.spawn`** for subprocess management. Read stdout and stderr concurrently via `Promise.all([new Response(proc.stdout).text(), new Response(proc.stderr).text(), proc.exited])` to avoid deadlock when buffers fill.
 
-3. **QMD runs via `node`, not `bun`** — Bun's built-in SQLite on macOS uses Apple's SQLite which lacks `loadExtension()`, breaking sqlite-vec. The QMD entry point is resolved via `import.meta.resolve("@tobilu/qmd/dist/qmd.js")` and executed as a Node subprocess.
+2. **QMD runs via `node`, not `bun`** — Bun's built-in SQLite on macOS uses Apple's SQLite which lacks `loadExtension()`, breaking sqlite-vec. The QMD entry point is resolved via `import.meta.resolve("@tobilu/qmd/dist/qmd.js")` and executed as a Node subprocess.
 
-4. **QMD's `--json` flag** is your best friend. All QMD commands support it and return structured data. Parse with `JSON.parse()` — no scraping needed. Other output formats available: `--csv`, `--md`, `--xml`, `--files`.
+3. **QMD's `--json` flag** is your best friend. All QMD commands support it and return structured data. Parse with `JSON.parse()` — no scraping needed. Other output formats available: `--csv`, `--md`, `--xml`, `--files`.
 
-5. **Obsidian CLI availability** should be checked at runtime, not assumed. The fallback path (vault-fs.ts) is already built. Note the CLI is Early Access and command names use a category:subcommand format (e.g., `files list`, `property:read`, `search content`).
+4. **Obsidian CLI availability** should be checked at runtime, not assumed. The fallback path (vault-fs.ts) is already built. Note the CLI is Early Access and command names use a category:subcommand format (e.g., `files list`, `property:read`, `search content`).
 
-6. **The Agent SDK's `tool()` helper** uses Zod schemas. Keep tool definitions clean and well-documented — the descriptions are what the agent sees. The handler must return `{ content: [{ type: "text", text: "..." }] }` (MCP CallToolResult format), **not** `{ type: "text", text: "..." }`.
+5. **MCP tool naming** — Confirmed convention: `mcp__<server-name>__<tool-name>` (e.g. `mcp__vault__qmd_search`). Server name comes from `createSdkMcpServer({ name: "vault" })`.
 
-7. **MCP tool references** in `allowedTools` and sub-agent `tools` arrays likely need the `mcp__<server-name>__<tool-name>` prefix. Verify this convention against SDK docs at implementation time.
+6. **Tool handlers** must return `{ content: [{ type: "text", text: "..." }] }` (MCP CallToolResult format), **not** `{ type: "text", text: "..." }`. Use `type: "text" as const` for TypeScript compatibility.
 
-8. **System prompts** should include vault-specific context: collection name, number of notes, key folders, active tags. Populate this from `qmd status` and vault config.
+7. **Agent engine patterns** — `query()` returns an async iterable. Stream text blocks from `message.message.content` to stdout. Use `resume: sessionId` for multi-turn chat. Require `allowDangerouslySkipPermissions: true` alongside `permissionMode: "bypassPermissions"`.
 
-9. **Stream output** from the agent to the terminal. Don't buffer the entire response. The Agent SDK's `query()` returns an async generator of `SDKMessage` objects. For assistant messages, iterate over `message.message.content` blocks and write text blocks to stdout.
+8. **System prompts** dynamically include vault context (path, collection name, note count, folder list) via `vaultFs.getVaultStats()` and `vaultFs.listNotes()`.
 
-10. **Include "Task" in allowedTools** if you want the main agent to delegate to sub-agents — the SDK uses the Task tool internally for sub-agent dispatch.
+9. **Include "Task" in allowedTools** if you want the main agent to delegate to sub-agents — the SDK uses the Task tool internally for sub-agent dispatch.
 
-11. **CLAUDE.md** in the project root is already created with Bun conventions, API preferences, testing, and frontend patterns.
+### Next Up: Phase 3
+
+- Phases 1 and 2 are complete. The foundation (integrations, config, CLI, agent engine) is solid.
+- Phase 3 adds `link-suggest` and `review` commands plus sub-agent definitions.
+- Sub-agents (`researcher`, `linker`) should reuse the existing `createVaultMcpServer()` tool set.
+- CLAUDE.md has been updated with project architecture, key constraints, scripts, and Agent SDK patterns.
