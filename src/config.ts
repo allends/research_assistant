@@ -21,22 +21,33 @@ export function getConfigPath(): string {
 }
 
 export function configExists(): boolean {
-  if (isDevMode()) return true;
+  if (isDevMode() || process.env.RA_VAULT) return true;
   return existsSync(CONFIG_PATH);
 }
 
+export function getVaultPath(): string | undefined {
+  const envVault = process.env.RA_VAULT;
+  if (envVault) return resolve(envVault);
+  if (isDevMode()) return join(getProjectRoot(), "test-vault");
+  return undefined;
+}
+
 export async function loadConfig(): Promise<Config> {
-  const devConfig: Config = isDevMode()
-    ? {
-        vault: {
-          path: join(getProjectRoot(), "test-vault"),
-          qmd_collection: "test-vault",
-          obsidian_cli: false,
-        },
-        defaults: { ...DEFAULT_CONFIG.defaults },
-        agent: { ...DEFAULT_CONFIG.agent },
-      }
-    : { ...DEFAULT_CONFIG };
+  const vaultPath = getVaultPath();
+  const devConfig: Config =
+    isDevMode() || vaultPath
+      ? {
+          vault: {
+            path: vaultPath ?? join(getProjectRoot(), "test-vault"),
+            qmd_collection:
+              vaultPath?.split("/").pop()?.toLowerCase().replace(/[^a-z0-9-]/g, "-") ??
+              "test-vault",
+            obsidian_cli: false,
+          },
+          defaults: { ...DEFAULT_CONFIG.defaults },
+          agent: { ...DEFAULT_CONFIG.agent },
+        }
+      : { ...DEFAULT_CONFIG };
 
   if (!existsSync(CONFIG_PATH)) {
     return devConfig;

@@ -5,6 +5,7 @@ import { initCommand } from "./commands/init.ts";
 import { searchCommand } from "./commands/search.ts";
 import { indexCommand } from "./commands/index-cmd.ts";
 import { setVerbose } from "./utils/logger.ts";
+import { getVaultPath } from "./config.ts";
 
 const program = new Command();
 
@@ -22,9 +23,14 @@ program
 program
   .command("init")
   .description("Initialize research-assistant for an Obsidian vault")
-  .argument("<vault-path>", "Path to Obsidian vault directory")
-  .action(async (vaultPath: string) => {
-    await initCommand(vaultPath);
+  .argument("[vault-path]", "Path to Obsidian vault directory (defaults to RA_VAULT env)")
+  .action(async (vaultPath?: string) => {
+    const resolved = vaultPath ?? getVaultPath();
+    if (!resolved) {
+      console.error("No vault path provided. Pass a path or set RA_VAULT in .env");
+      process.exit(1);
+    }
+    await initCommand(resolved);
   });
 
 program
