@@ -1,22 +1,9 @@
 {
   "name": "research-assistant",
-  "version": "0.1.0",
-  "type": "module",
   "private": true,
-  "bin": {
-    "ra": "./src/index.ts",
-    "research-assistant": "./src/index.ts"
-  },
-  "dependencies": {
-    "@anthropic-ai/claude-agent-sdk": "^0.2.45",
-    "@tobilu/qmd": "^1.0.6",
-    "commander": "^12.0.0",
-    "glob": "^11.0.0",
-    "gray-matter": "^4.0.3",
-    "zod": "^4.3.6"
-  },
+  "workspaces": ["packages/*"],
   "scripts": {
-    "ra": "bun run src/index.ts --",
+    "ra": "bun run packages/cli/src/index.ts --",
     "test:smoke": "bun run tests/dev-smoke.ts",
     "test:cli": "bun run tests/cli-smoke.ts",
     "test:all": "bun run test:smoke && bun run test:cli"
@@ -25,7 +12,6 @@
     "@types/bun": "latest",
     "typescript": "^5.7.0"
   },
-  "module": "src/index.ts",
   "overrides": {
     "better-sqlite3": "^12.6.0"
   }

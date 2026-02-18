@@ -1,8 +1,5 @@
+import { askStream, AuthError, linkSuggestSystemPrompt, vaultFs, extractWikilinks } from "@ra/core";
 import { loadConfig, configExists } from "../config.ts";
-import { askOnce } from "../agent/engine.ts";
-import { linkSuggestSystemPrompt } from "../agent/system-prompts.ts";
-import * as vaultFs from "../integrations/vault-fs.ts";
-import { extractWikilinks } from "../utils/markdown.ts";
 
 export async function linkSuggestCommand(
   file: string,
@@ -25,9 +22,28 @@ export async function linkSuggestCommand(
     ? `Analyze the note at "${note.path}" and suggest [[wikilinks]]. Then apply the suggestions by rewriting the note with vault_write, inserting wikilinks inline where they fit naturally in the text. Do NOT add a links section at the bottom — weave them into existing sentences.`
     : `Analyze the note at "${note.path}" and suggest [[wikilinks]] that should be added.`;
 
-  await askOnce(prompt, config, {
-    model: options.model,
-    maxTurns: 6,
-    systemPrompt,
-  });
+  let exitCode = 0;
+
+  try {
+    for await (const event of askStream(prompt, config, {
+      model: options.model,
+      maxTurns: 6,
+      systemPrompt,
+    })) {
+      if (event.type === "text") process.stdout.write(event.text!);
+      if (event.type === "error") {
+        console.error(`\nAgent stopped: ${event.error}`);
+        exitCode = 1;
+      }
+    }
+  } catch (e) {
+    if (e instanceof AuthError) {
+      console.error(e.message);
+      process.exit(1);
+    }
+    throw e;
+  }
+
+  process.stdout.write("\n");
+  process.exit(exitCode);
 }

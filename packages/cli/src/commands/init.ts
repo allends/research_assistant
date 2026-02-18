@@ -1,9 +1,6 @@
 import { resolve } from "path";
+import { qmd, obsidianCli, formatSuccess, formatWarning, formatError, info, error as logError } from "@ra/core";
 import { loadConfig, saveConfig, validateVaultPath } from "../config.ts";
-import * as qmd from "../integrations/qmd.ts";
-import * as obsidian from "../integrations/obsidian-cli.ts";
-import { formatSuccess, formatWarning, formatError } from "../utils/formatter.ts";
-import { info, error as logError } from "../utils/logger.ts";
 
 export async function initCommand(vaultPath: string): Promise<void> {
   const resolved = resolve(vaultPath);
@@ -29,9 +26,9 @@ export async function initCommand(vaultPath: string): Promise<void> {
   info(formatSuccess("QMD found"));
 
   // Check Obsidian CLI availability
-  const obsidianAvailable = await obsidian.isAvailable();
+  const obsidianAvailable = await obsidianCli.isAvailable();
   if (obsidianAvailable) {
-    const version = await obsidian.getVersion();
+    const version = await obsidianCli.getVersion();
     info(formatSuccess(`Obsidian CLI found${version ? ` (${version})` : ""}`));
   } else {
     info(

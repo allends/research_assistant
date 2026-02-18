@@ -1,8 +1,6 @@
+import { qmd, formatSearchResults, info, error } from "@ra/core";
+import type { SearchMode } from "@ra/core";
 import { loadConfig, configExists } from "../config.ts";
-import * as qmd from "../integrations/qmd.ts";
-import { formatSearchResults } from "../utils/formatter.ts";
-import { info, error } from "../utils/logger.ts";
-import type { SearchMode } from "../types/search.ts";
 
 interface SearchOptions {
   mode: SearchMode;

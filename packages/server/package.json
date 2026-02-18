@@ -1,0 +1,11 @@
+{
+  "name": "@ra/server",
+  "version": "0.1.0",
+  "type": "module",
+  "private": true,
+  "main": "src/index.ts",
+  "dependencies": {
+    "@ra/core": "workspace:*",
+    "hono": "^4.0.0"
+  }
+}

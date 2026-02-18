@@ -1,7 +1,5 @@
+import { askStream, AuthError, reviewSystemPrompt, vaultFs } from "@ra/core";
 import { loadConfig, configExists } from "../config.ts";
-import { askOnce } from "../agent/engine.ts";
-import { reviewSystemPrompt } from "../agent/system-prompts.ts";
-import * as vaultFs from "../integrations/vault-fs.ts";
 
 export async function reviewCommand(options: {
   recent?: string;
@@ -33,13 +31,32 @@ export async function reviewCommand(options: {
 
   const systemPrompt = await reviewSystemPrompt(config, recentFiles);
 
-  await askOnce(
-    `Review the ${recentFiles.length} recently modified notes and provide actionable insights.`,
-    config,
-    {
-      model: options.model,
-      maxTurns: 20,
-      systemPrompt,
-    },
-  );
+  let exitCode = 0;
+
+  try {
+    for await (const event of askStream(
+      `Review the ${recentFiles.length} recently modified notes and provide actionable insights.`,
+      config,
+      {
+        model: options.model,
+        maxTurns: 20,
+        systemPrompt,
+      },
+    )) {
+      if (event.type === "text") process.stdout.write(event.text!);
+      if (event.type === "error") {
+        console.error(`\nAgent stopped: ${event.error}`);
+        exitCode = 1;
+      }
+    }
+  } catch (e) {
+    if (e instanceof AuthError) {
+      console.error(e.message);
+      process.exit(1);
+    }
+    throw e;
+  }
+
+  process.stdout.write("\n");
+  process.exit(exitCode);
 }

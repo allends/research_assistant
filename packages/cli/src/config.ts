@@ -1,8 +1,8 @@
 import { homedir } from "os";
 import { join, resolve } from "path";
 import { existsSync, mkdirSync } from "fs";
-import type { Config } from "./types/config.ts";
-import { DEFAULT_CONFIG } from "./types/config.ts";
+import type { Config } from "@ra/core";
+import { DEFAULT_CONFIG } from "@ra/core";
 
 const CONFIG_DIR = join(homedir(), ".research-assistant");
 const CONFIG_PATH = join(CONFIG_DIR, "config.json");
@@ -28,7 +28,7 @@ export function configExists(): boolean {
 export function getVaultPath(): string | undefined {
   const envVault = process.env.RA_VAULT;
   if (envVault) return resolve(envVault);
-  if (isDevMode()) return join(getProjectRoot(), "test-vault");
+  if (isDevMode()) return join(getProjectRoot(), "../../test-vault");
   return undefined;
 }
 
@@ -38,7 +38,7 @@ export async function loadConfig(): Promise<Config> {
     isDevMode() || vaultPath
       ? {
           vault: {
-            path: vaultPath ?? join(getProjectRoot(), "test-vault"),
+            path: vaultPath ?? join(getProjectRoot(), "../../test-vault"),
             qmd_collection:
               vaultPath?.split("/").pop()?.toLowerCase().replace(/[^a-z0-9-]/g, "-") ??
               "test-vault",

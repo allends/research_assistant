@@ -28,7 +28,7 @@ function fail(name: string, err: unknown) {
 
 console.log(`\n${BOLD}Config & Dev Mode${RESET}`);
 
-import { isDevMode, getProjectRoot, configExists, loadConfig } from "../src/config.ts";
+import { isDevMode, getProjectRoot, configExists, loadConfig } from "../packages/cli/src/config.ts";
 
 try {
   const dev = isDevMode();
@@ -38,7 +38,7 @@ try {
 
 try {
   const root = getProjectRoot();
-  if (!root.endsWith("research_assistant")) throw new Error(`Unexpected root: ${root}`);
+  if (!root.endsWith("packages/cli")) throw new Error(`Unexpected root: ${root}`);
   ok("getProjectRoot()", root);
 } catch (e) { fail("getProjectRoot()", e); }
 
@@ -66,32 +66,32 @@ try {
 
 console.log(`\n${BOLD}Vault Filesystem${RESET}`);
 
-import { isObsidianVault, listNotes, readNote, getVaultStats } from "../src/integrations/vault-fs.ts";
+import { vaultFs, extractWikilinks, extractTags, extractHeadings } from "../packages/core/src/index.ts";
 import { join } from "path";
 
-const vaultPath = join(getProjectRoot(), "test-vault");
+const vaultPath = join(getProjectRoot(), "../../test-vault");
 
 try {
-  const valid = isObsidianVault(vaultPath);
+  const valid = vaultFs.isObsidianVault(vaultPath);
   if (!valid) throw new Error("isObsidianVault returned false");
   ok("isObsidianVault(test-vault)");
 } catch (e) { fail("isObsidianVault(test-vault)", e); }
 
 try {
-  const notes = await listNotes(vaultPath);
+  const notes = await vaultFs.listNotes(vaultPath);
   if (notes.length !== 13) throw new Error(`Expected 13 notes, got ${notes.length}: ${notes.join(", ")}`);
   ok("listNotes() returns 13 notes", notes.join(", "));
 } catch (e) { fail("listNotes() returns 13 notes", e); }
 
 try {
-  const stats = await getVaultStats(vaultPath);
+  const stats = await vaultFs.getVaultStats(vaultPath);
   if (stats.totalNotes !== 13) throw new Error(`Expected 13 notes, got ${stats.totalNotes}`);
   if (stats.totalFolders < 5) throw new Error(`Expected >= 5 folders, got ${stats.totalFolders}`);
   ok("getVaultStats()", `${stats.totalNotes} notes, ${stats.totalFolders} folders`);
 } catch (e) { fail("getVaultStats()", e); }
 
 try {
-  const note = await readNote("projects/research-assistant.md", vaultPath);
+  const note = await vaultFs.readNote("projects/research-assistant.md", vaultPath);
   if (!note.frontmatter.title) throw new Error("Missing frontmatter title");
   if (!note.frontmatter.tags?.length) throw new Error("Missing frontmatter tags");
   if (!note.body.includes("[[")) throw new Error("No wikilinks found in body");
@@ -102,24 +102,22 @@ try {
 
 console.log(`\n${BOLD}Markdown Utilities${RESET}`);
 
-import { extractWikilinks, extractTags, extractHeadings } from "../src/utils/markdown.ts";
-
 try {
-  const note = await readNote("projects/research-assistant.md", vaultPath);
+  const note = await vaultFs.readNote("projects/research-assistant.md", vaultPath);
   const links = extractWikilinks(note.content);
   if (links.length === 0) throw new Error("No wikilinks extracted");
   ok("extractWikilinks()", `[${links.join(", ")}]`);
 } catch (e) { fail("extractWikilinks()", e); }
 
 try {
-  const note = await readNote("projects/research-assistant.md", vaultPath);
+  const note = await vaultFs.readNote("projects/research-assistant.md", vaultPath);
   const tags = extractTags(note.body);
   if (tags.length === 0) throw new Error("No inline tags found");
   ok("extractTags()", `[${tags.join(", ")}]`);
 } catch (e) { fail("extractTags()", e); }
 
 try {
-  const note = await readNote("references/vector-search.md", vaultPath);
+  const note = await vaultFs.readNote("references/vector-search.md", vaultPath);
   const headings = extractHeadings(note.body);
   if (headings.length < 3) throw new Error(`Expected >= 3 headings, got ${headings.length}`);
   ok("extractHeadings()", `${headings.length} headings`);
@@ -130,10 +128,10 @@ try {
 console.log(`\n${BOLD}Cross-Links${RESET}`);
 
 try {
-  const notes = await listNotes(vaultPath);
+  const notes = await vaultFs.listNotes(vaultPath);
   const linkMap: Record<string, string[]> = {};
   for (const notePath of notes) {
-    const note = await readNote(notePath, vaultPath);
+    const note = await vaultFs.readNote(notePath, vaultPath);
     linkMap[notePath] = extractWikilinks(note.content);
   }
 
@@ -159,10 +157,10 @@ try {
 console.log(`\n${BOLD}Frontmatter Completeness${RESET}`);
 
 try {
-  const notes = await listNotes(vaultPath);
+  const notes = await vaultFs.listNotes(vaultPath);
   const issues: string[] = [];
   for (const notePath of notes) {
-    const note = await readNote(notePath, vaultPath);
+    const note = await vaultFs.readNote(notePath, vaultPath);
     if (!note.frontmatter.title) issues.push(`${notePath}: missing title`);
     if (!note.frontmatter.tags?.length) issues.push(`${notePath}: missing tags`);
     if (!note.frontmatter.created) issues.push(`${notePath}: missing created`);

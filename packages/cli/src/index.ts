@@ -9,7 +9,7 @@ import { chatCommand } from "./commands/chat.ts";
 import { linkSuggestCommand } from "./commands/link-suggest.ts";
 import { reviewCommand } from "./commands/review.ts";
 import { listCommand } from "./commands/list.ts";
-import { setVerbose } from "./utils/logger.ts";
+import { setVerbose } from "@ra/core";
 import { getVaultPath } from "./config.ts";
 
 const program = new Command();
@@ -123,6 +123,16 @@ program
   .option("--json", "Output as JSON", false)
   .action(async (options: { json: boolean }) => {
     await listCommand(options);
+  });
+
+program
+  .command("serve")
+  .description("Start the research assistant HTTP server")
+  .option("-p, --port <port>", "Port to listen on", "3117")
+  .action(async (options: { port: string }) => {
+    await import("./commands/serve.ts").then((m) =>
+      m.serveCommand({ port: parseInt(options.port, 10) }),
+    );
   });
 
 program.parse();

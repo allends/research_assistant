@@ -25,7 +25,7 @@ function fail(name: string, err: unknown) {
 }
 
 async function runCli(args: string[]): Promise<{ stdout: string; stderr: string; exitCode: number }> {
-  const proc = Bun.spawn(["bun", "run", "src/index.ts", ...args], {
+  const proc = Bun.spawn(["bun", "run", "packages/cli/src/index.ts", ...args], {
     stdout: "pipe",
     stderr: "pipe",
     env: { ...process.env, RA_DEV: "1" },
@@ -55,6 +55,7 @@ try {
   if (!stdout.includes("chat")) throw new Error("Missing 'chat' command");
   if (!stdout.includes("link-suggest")) throw new Error("Missing 'link-suggest' command");
   if (!stdout.includes("review")) throw new Error("Missing 'review' command");
+  if (!stdout.includes("serve")) throw new Error("Missing 'serve' command");
   ok("ra --help", "lists all commands");
 } catch (e) { fail("ra --help", e); }
 
@@ -112,6 +113,13 @@ try {
   if (!stdout.includes("--model")) throw new Error("Missing --model option");
   ok("ra review --help", "shows options");
 } catch (e) { fail("ra review --help", e); }
+
+try {
+  const { stdout, exitCode } = await runCli(["serve", "--help"]);
+  if (exitCode !== 0) throw new Error(`Exit code ${exitCode}`);
+  if (!stdout.includes("--port")) throw new Error("Missing --port option");
+  ok("ra serve --help", "shows options");
+} catch (e) { fail("ra serve --help", e); }
 
 // ── Dev Mode Config Bypass ──
 

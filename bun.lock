@@ -4,17 +4,40 @@
   "workspaces": {
     "": {
       "name": "research_assistant",
+      "devDependencies": {
+        "@types/bun": "latest",
+        "typescript": "^5.7.0",
+      },
+    },
+    "packages/cli": {
+      "name": "@ra/cli",
+      "version": "0.1.0",
+      "bin": {
+        "ra": "./src/index.ts",
+        "research-assistant": "./src/index.ts",
+      },
+      "dependencies": {
+        "@ra/core": "workspace:*",
+        "commander": "^12.0.0",
+      },
+    },
+    "packages/core": {
+      "name": "@ra/core",
+      "version": "0.1.0",
       "dependencies": {
         "@anthropic-ai/claude-agent-sdk": "^0.2.45",
         "@tobilu/qmd": "^1.0.6",
-        "commander": "^12.0.0",
         "glob": "^11.0.0",
         "gray-matter": "^4.0.3",
         "zod": "^4.3.6",
       },
-      "devDependencies": {
-        "@types/bun": "latest",
-        "typescript": "^5.7.0",
+    },
+    "packages/server": {
+      "name": "@ra/server",
+      "version": "0.1.0",
+      "dependencies": {
+        "@ra/core": "workspace:*",
+        "hono": "^4.0.0",
       },
     },
   },
@@ -147,6 +170,12 @@
     "@octokit/webhooks": ["@octokit/webhooks@14.2.0", "", { "dependencies": { "@octokit/openapi-webhooks-types": "12.1.0", "@octokit/request-error": "^7.0.0", "@octokit/webhooks-methods": "^6.0.0" } }, "sha512-da6KbdNCV5sr1/txD896V+6W0iamFWrvVl8cHkBSPT+YlvmT3DwXa4jxZnQc+gnuTEqSWbBeoSZYTayXH9wXcw=="],
 
     "@octokit/webhooks-methods": ["@octokit/webhooks-methods@6.0.0", "", {}, "sha512-MFlzzoDJVw/GcbfzVC1RLR36QqkTLUf79vLVO3D+xn7r0QgxnFoLZgtrzxiQErAjFUOdH6fas2KeQJ1yr/qaXQ=="],
+
+    "@ra/cli": ["@ra/cli@workspace:packages/cli"],
+
+    "@ra/core": ["@ra/core@workspace:packages/core"],
+
+    "@ra/server": ["@ra/server@workspace:packages/server"],
 
     "@reflink/reflink": ["@reflink/reflink@0.1.19", "", { "optionalDependencies": { "@reflink/reflink-darwin-arm64": "0.1.19", "@reflink/reflink-darwin-x64": "0.1.19", "@reflink/reflink-linux-arm64-gnu": "0.1.19", "@reflink/reflink-linux-arm64-musl": "0.1.19", "@reflink/reflink-linux-x64-gnu": "0.1.19", "@reflink/reflink-linux-x64-musl": "0.1.19", "@reflink/reflink-win32-arm64-msvc": "0.1.19", "@reflink/reflink-win32-x64-msvc": "0.1.19" } }, "sha512-DmCG8GzysnCZ15bres3N5AHCmwBwYgp0As6xjhQ47rAUTUXxJiK+lLUxaGsX3hd/30qUpVElh05PbGuxRPgJwA=="],
 

@@ -1,7 +1,5 @@
+import { qmd, formatStatus, formatSuccess, formatError, info, error } from "@ra/core";
 import { loadConfig, configExists } from "../config.ts";
-import * as qmd from "../integrations/qmd.ts";
-import { formatStatus, formatSuccess, formatError } from "../utils/formatter.ts";
-import { info, error } from "../utils/logger.ts";
 
 interface IndexOptions {
   update: boolean;

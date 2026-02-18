@@ -1,0 +1,14 @@
+{
+  "name": "@ra/cli",
+  "version": "0.1.0",
+  "type": "module",
+  "private": true,
+  "bin": {
+    "ra": "./src/index.ts",
+    "research-assistant": "./src/index.ts"
+  },
+  "dependencies": {
+    "@ra/core": "workspace:*",
+    "commander": "^12.0.0"
+  }
+}

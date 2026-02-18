@@ -1,5 +1,5 @@
+import { vaultFs } from "@ra/core";
 import { loadConfig, configExists } from "../config.ts";
-import * as vaultFs from "../integrations/vault-fs.ts";
 
 export async function listCommand(options: { json: boolean }): Promise<void> {
   if (!configExists()) {
