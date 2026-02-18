@@ -8,9 +8,10 @@
     "research-assistant": "./src/index.ts"
   },
   "dependencies": {
+    "@tobilu/qmd": "^1.0.6",
     "commander": "^12.0.0",
-    "gray-matter": "^4.0.3",
-    "glob": "^11.0.0"
+    "glob": "^11.0.0",
+    "gray-matter": "^4.0.3"
   },
   "scripts": {
     "test:smoke": "bun run tests/dev-smoke.ts",
@@ -21,5 +22,8 @@
     "@types/bun": "latest",
     "typescript": "^5.7.0"
   },
-  "module": "src/index.ts"
+  "module": "src/index.ts",
+  "overrides": {
+    "better-sqlite3": "^12.6.0"
+  }
 }

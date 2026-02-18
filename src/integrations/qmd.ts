@@ -5,10 +5,17 @@ import type {
   SearchMode,
 } from "../types/search.ts";
 
+// Resolve the qmd entry point once — run via node (not bun) because
+// Bun's built-in SQLite on macOS uses Apple's SQLite which doesn't
+// support loadExtension(), breaking sqlite-vec for vector search.
+const QMD_ENTRY = new URL(
+  import.meta.resolve("@tobilu/qmd/dist/qmd.js"),
+).pathname;
+
 async function run(
   args: string[],
 ): Promise<{ stdout: string; exitCode: number }> {
-  const proc = Bun.spawn(["qmd", ...args], {
+  const proc = Bun.spawn(["node", QMD_ENTRY, ...args], {
     stdout: "pipe",
     stderr: "pipe",
   });
@@ -123,7 +130,7 @@ export async function update(): Promise<void> {
 
 export async function isAvailable(): Promise<boolean> {
   try {
-    const proc = Bun.spawn(["qmd", "--version"], {
+    const proc = Bun.spawn(["node", QMD_ENTRY, "--version"], {
       stdout: "pipe",
       stderr: "pipe",
     });
