@@ -12,6 +12,11 @@
     "gray-matter": "^4.0.3",
     "glob": "^11.0.0"
   },
+  "scripts": {
+    "test:smoke": "bun run tests/dev-smoke.ts",
+    "test:cli": "bun run tests/cli-smoke.ts",
+    "test:all": "bun run test:smoke && bun run test:cli"
+  },
   "devDependencies": {
     "@types/bun": "latest",
     "typescript": "^5.7.0"
